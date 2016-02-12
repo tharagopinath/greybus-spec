@@ -1114,6 +1114,11 @@ Conceptually, the operations in the Greybus SVC Protocol are:
    The AP uses this operation to request the SVC to power ON or power
    OFF the Interface associated with the Interface ID.
 
+.. c:function:: int intf_refclk_state_set(u8 intf_id, u8 enable, u8 *result);
+
+  The AP uses this operation to request the SVC to enable or disable
+  the reference clock to the Interface associated with the Interface ID.
+
 Greybus SVC Operations
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1132,41 +1137,42 @@ response type values are shown.
     :caption: SVC Operation Types
     :spec: l l l
 
-    ==================================  =============  ==============
-    SVC Operation Type                  Request Value  Response Value
-    ==================================  =============  ==============
-    Ping                                0x00           0x80
-    Protocol Version                    0x01           0x81
-    SVC Hello                           0x02           0x82
-    Interface device ID                 0x03           0x83
-    Interface hotplug                   0x04           0x84
-    Interface hot unplug                0x05           0x85
-    Interface reset                     0x06           0x86
-    Connection create                   0x07           0x87
-    Connection destroy                  0x08           0x88
-    DME peer get                        0x09           0x89
-    DME peer set                        0x0a           0x8a
-    Route create                        0x0b           0x8b
-    Route destroy                       0x0c           0x8c
-    TimeSync enable                     0x0d           0x8d
-    TimeSync disable                    0x0e           0x8e
-    TimeSync authoritative              0x0f           0x8f
-    Interface set power mode            0x10           0x90
-    Module Eject                        0x11           0x91
-    Key Event                           0x12           N/A
-    Reserved                            0x13           0x93
-    Power Monitor get rail count        0x14           0x94
-    Power Monitor get rail names        0x15           0x95
-    Power Monitor get sample            0x16           0x96
-    Power Monitor interface get sample  0x17           0x97
-    Power Down                          0x1d           0x9d
-    Connection Quiescing                0x1e           0x9e
-    Module Inserted                     0x1f           0x9f
-    Module Removed                      0x20           0xa0
-    Interface Power State Set           0x21           0xa1
-    (all other values reserved)         0x22..0x7e     0xa2..0xfe
-    Invalid                             0x7f           0xff
-    ==================================  =============  ==============
+    ==================================   =============  ==============
+    SVC Operation Type                   Request Value  Response Value
+    ==================================   =============  ==============
+    Ping                                 0x00           0x80
+    Protocol Version                     0x01           0x81
+    SVC Hello                            0x02           0x82
+    Interface device ID                  0x03           0x83
+    Interface hotplug                    0x04           0x84
+    Interface hot unplug                 0x05           0x85
+    Interface reset                      0x06           0x86
+    Connection create                    0x07           0x87
+    Connection destroy                   0x08           0x88
+    DME peer get                         0x09           0x89
+    DME peer set                         0x0a           0x8a
+    Route create                         0x0b           0x8b
+    Route destroy                        0x0c           0x8c
+    TimeSync enable                      0x0d           0x8d
+    TimeSync disable                     0x0e           0x8e
+    TimeSync authoritative               0x0f           0x8f
+    Interface set power mode             0x10           0x90
+    Module Eject                         0x11           0x91
+    Key Event                            0x12           N/A
+    Reserved                             0x13           0x93
+    Power Monitor get rail count         0x14           0x94
+    Power Monitor get rail names         0x15           0x95
+    Power Monitor get sample             0x16           0x96
+    Power Monitor interface get sample   0x17           0x97
+    Power Down                           0x1d           0x9d
+    Connection Quiescing                 0x1e           0x9e
+    Module Inserted                      0x1f           0x9f
+    Module Removed                       0x20           0xa0
+    Interface Power State Set            0x21           0xa1
+    Interface Reference Clock State Set  0x22           0xa2
+    (all other values reserved)          0x23..0x7e     0xa3..0xfe
+    Invalid                              0x7f           0xff
+    ==================================   =============  ==============
 
 ..
 
@@ -2737,6 +2743,137 @@ The values of the result_code are defined in Table
     PWR_FAIL          2         Power enable/disable was attempted and failed.
     (Reserved)        3-255     (Reserved for future use)
     ================  ========  =======================================================================================
+..
+
+Greybus SVC Interface Reference Clock State Set Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AP uses this operation to request the SVC to enable or disable the
+reference clock to the Interface specified by the Interface ID. The SVC,
+on receiving this operation, shall unconditionally perform the necessary
+actions to enable or disable the reference clock to the Interface.
+
+Greybus SVC Interface Reference Clock State Set Request
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-svc-interface-reference-clock-state-set-request`
+defines the Greybus SVC Interface Reference Clock State Set request
+payload. The request contains one-byte Interface ID and one-byte
+indicating whether the reference clock to the targeted Interface shall
+be enabled or disabled.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-interface-reference-clock-state-set-request
+    :caption: SVC Protocol Interface Reference Clock State Set Request
+    :spec: l l c c l
+
+    =======  ==============  ======  ============    =================================================================
+    Offset   Field           Size    Value           Description
+    =======  ==============  ======  ============    =================================================================
+    0        intf_id         1       Interface ID    Interface ID.
+    1        enable          1       Number          Field describing whether to enable or disable the reference clock
+    =======  ==============  ======  ============    =================================================================
+..
+
+The enable field in the request payload allows the AP to specify whether
+the SVC shall enable or disable the reference clock to the targeted
+Interface.  Table
+:num:`table-svc-interface-reference-clock-state-set-request-enable`
+defines the values possible for the enable field.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-interface-reference-clock-state-set-request-enable
+    :caption: SVC Protocol Interface Reference Clock State Set Request Enable Field
+    :spec: l c l
+
+    =================  =====  ========================================
+    REF CLOCK STATE    Value  Description
+    =================  =====  ========================================
+    REFCLK_DISABLE     0      Disable reference clock to the Interface
+    REFCLK_ENABLE      1      Enable reference clock to the Interface
+    (Reserved)         2-255  Reserved
+    =================  =====  ========================================
+..
+
+A Greybus SVC Reference Clock State Set Request with the "enable" field
+set to REFCLK_ENABLE means that the AP is requesting the SVC to enable
+the reference clock to the targeted Interface. The SVC, on receiving
+this request, shall unconditionally attempt to enable the reference
+clock to the Interface. The AP shall enable the Interface reference
+clock prior to issuing any new Greybus operations on the Interface. The
+AP shall also ensure that the Interface is powered on before enabling
+the reference clock to the Interface.
+
+Similarly, a Greybus SVC Interface Reference Clock State Set Request with the
+"enable" field set to REFCLK_DISABLE means that the AP is requesting the SVC to
+disable the reference clock to the targeted Interface. The SVC, on receiving
+this request, shall unconditionally attempt to disable the reference clock
+to the Interface. The AP shall ensure that the Greybus connections already
+established in the Interface are destroyed before issuing this request.
+
+Greybus SVC Interface Reference Clock State Set Response
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-svc-interface-reference-clock-state-set-response`
+defines the Greybus SVC Interface Reference Clock State Set response
+payload. The response contains a one-byte result code indicating the
+status of the Greybus SVC Interface Reference Clock State Set Operation.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-interface-reference-clock-state-set-response
+    :caption: SVC Protocol Interface Reference Clock State Set Response
+    :spec: l l c c l
+
+    =======  ===========  ======  ==========  ===========
+    Offset   Field        Size    Value       Description
+    =======  ===========  ======  ==========  ===========
+    0        result_code  1       Number      Result Code
+    =======  ===========  ======  ==========  ===========
+..
+
+The status field of the response to a Greybus SVC Interface Reference
+Clock State Set Request shall not be used to check the result of the
+clock enable/disable operation. It shall only be used to indicate the
+result of the Greybus communication. If the response to a Greybus SVC
+Interface Reference Clock State Set Request has status different than
+GB_OP_SUCCESS, it shall indicate that a Greybus communication error
+occurred and that the reference clock to the targeted Interface could
+not be enabled or disabled; the reference clock to the targeted
+Interface shall be in the same state as before the request was issued.
+If the response to a Greybus SVC Interface Reference Clock State Set
+Request has status GB_OP_SUCCESS, it shall indicate that there was no
+Greybus communication error detected (request and response were
+successfully exchanged). However, it shall not also be considered as a
+successful reference clock enable/disable operation.
+
+The result_code field in the response, as described in Table
+:num:`table-svc-interface-reference-clock-state-set-response` shall be
+used for that unique purpose. In other words, if and only if response
+status field is GB_OP_SUCCESS and result_code field in the response is
+CLK_OK, the reference clock enable/disable request shall be considered
+as successful. The Operation shall otherwise be considered as failed in
+any other combination of these two fields.
+
+The values of the result_code are defined in Table
+:num:`table-interface-reference-clock-state-set-result-code`.
+
+.. figtable::
+    :nofig:
+    :label: table-interface-reference-clock-state-set-result-code
+    :caption: Interface Reference Clock State Set Result Code
+    :spec: l l l
+
+    ================  ========  =================================================================================================
+    Result Code       Value     Description
+    ================  ========  =================================================================================================
+    CLK_OK            0         Reference clock enable/disable operation was successful.
+    CLK_BUSY          1         Reference clock enable/disable operation cannot be attempted as the SVC is busy.
+    CLK_FAIL          2         Reference clock enable/disable was attempted and failed.
+    (Reserved)        3-255     (Reserved for future use)
+    ================  ========  =================================================================================================
 ..
 
 .. _firmware-protocol:

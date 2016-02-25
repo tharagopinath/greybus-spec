@@ -118,6 +118,16 @@ Conceptually, the Operations in the Greybus Control Protocol are:
     This Operation is used by the AP to get the version of the Bundle Class
     implemented by a Bundle.
 
+.. c:function:: int intf_power_state_set(u8 state, u8 *result)
+
+   This operation is used by the AP to request a change in the power
+   state of the Interface.
+
+.. c:function:: int bundle_power_state_set(u8 bundle_id, u8 state, u8 *result);
+
+    This operation is used by the AP to request a change in the power
+    state of the Bundle.
+
 Greybus Control Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -152,10 +162,11 @@ type and response type values are shown.
     Interface Version            0x0a           0x8a
     Bundle Version               0x0b           0x8b
     Disconnecting                0x0c           0x8c
-    (all other values reserved)  0x0d..0x7e     0x8d..0xfe
+    Interface Power State Set    0x0d           0x8d
+    Bundle Power State Set       0x0e           0x8e
+    (all other values reserved)  0x0f..0x7e     0x8f..0xfe
     Invalid                      0x7f           0xff
     ===========================  =============  ==============
-
 ..
 
 Greybus Control Ping Operation
@@ -558,6 +569,370 @@ contains two 1-byte numbers, major and minor.
     =======  ============  ======  ==========  ===========================
 ..
 
+Greybus Control Interface Power State Set Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The Greybus Control Interface Power State Set Operation is sent by the
+AP to request a change to the power state of an Interface. This
+operation reprograms the logic common to all the bundles in the
+Interface to transition the Interface to the specified power state.
+Only the AP shall send this operation request, and not the modules.
+
+All interfaces shall support at least three power states as described
+in the Table :num:`table-interface-power-states`. Table
+:num:`table-interface-allowed-power-state-transitions` describes the
+allowed Interface power state transitions.
+
+Table :num:`table-interface-bundle-power-state-dependency` describes the
+dependencies between the power states of the Interface and the power
+states of the bundles in the Interface.  Before issuing a new Interface
+power state transition, the AP shall ensure that dependencies between
+the Interface and the Bundle power states as defined in Table
+:num:`table-interface-bundle-power-state-dependency` are met. For
+example, the AP shall not request an Interface transition to
+INTF_PWR_SUSPEND Interface power state if any of the bundles in the
+Interface are in BUNDLE_PWR_ON Bundle power state. This operation shall
+return error in case this dependency is not met.
+
+.. figtable::
+    :nofig:
+    :label: table-interface-allowed-power-state-transitions
+    :caption: Allowed Interface Power State Transitions
+    :spec: l l
+
+    ==========================  ===============================
+    Current Power State         Allowed Next Power States
+    ==========================  ===============================
+    INTF_PWR_OFF                INTF_PWR_ON
+    INTF_PWR_SUSPEND            INTF_PWR_ON
+    INTF_PWR_ON                 INTF_PWR_OFF, INTF_PWR_SUSPEND
+    ==========================  ===============================
+..
+
+.. figtable::
+    :nofig:
+    :label: table-interface-bundle-power-state-dependency
+    :caption: Interface Bundle Power State Dependency
+    :spec: l l
+
+    =============================================================================
+    Interface Power State       Bundle Power States
+    =============================================================================
+    INTF_PWR_OFF                BUNDLE_PWR_OFF
+    INTF_PWR_SUSPEND            BUNDLE_PWR_OFF, BUNDLE_PWR_SUSPEND
+    INTF_PWR_ON                 BUNDLE_PWR_OFF, BUNDLE_PWR_SUSPEND, BUNDLE_PWR_ON
+    =============================================================================
+..
+
+Greybus Control Interface Power State Set Request
+"""""""""""""""""""""""""""""""""""""""""""""""""
+Table :num:`table-control-interface-power-state-set-request` defines the
+Greybus Control Interface Power State Set request payload. The request
+contains a one-byte field specifying the power state to which the
+Interface is to be transitioned.
+
+.. figtable::
+    :nofig:
+    :label: table-control-interface-power-state-set-request
+    :caption: Control Protocol Interface Power State Set Request
+    :spec: l l c c l
+
+    =======  ============  ======  ==========  =====================================
+    Offset   Field         Size    Value       Description
+    =======  ============  ======  ==========  =====================================
+    0        pwr_state     1       Number      Target Interface power state
+    =======  ============  ======  ==========  =====================================
+..
+
+The pwr_state field in the request payload allows the AP to specify the
+target power state for the Interface. All Interfaces shall at least
+support the power states defined in Table
+:num:`table-interface-power-states`.
+
+.. figtable::
+    :nofig:
+    :label: table-interface-power-states
+    :caption: Interface Power States
+    :spec: l r l
+
+    ================   ============  ==============================
+    Power State        Value         Description
+    ================   ============  ==============================
+    INTF_PWR_OFF       0x00          Interface Power Off State.
+    INTF_PWR_SUSPEND   0x01          Interface Power Suspend State.
+    INTF_PWR_ON        0x02          Interface Power On State.
+    (Reserved)         0x03-0xFF     (Reserved for future use)
+    ================   ============  ==============================
+..
+
+The INTF_PWR_ON power state implies that the Interface logic is powered
+on and the Interface can be operational. This is the only power state in
+which Greybus communication is allowed. The AP shall transition the
+Interface power state to INTF_PWR_ON prior to initiating any new
+Greybus operation towards the Interface or pertaining Bundle(s).
+
+The INTF_PWR_SUSPEND power state implies that the logic pertaining to
+the Interface is in a low power state from which the wakeup latency is
+typically shorter than the wakeup latency from INTF_PWR_OFF state.
+
+The INTF_PWR_OFF power state implies that the Interface logic is fully
+powered off.
+
+The AP shall ensure that the CPort connections in the Interface are
+disabled before issuing the INTF_PWR_SUSPEND or INTF_PWR_OFF power state
+transitions.  This means that no Greybus communication to/from the
+Interface is possible after a successful power state transition to
+INTF_PWR_SUSPEND or INTF_PWR_OFF power states.  In case of a failed
+power state transition to INTF_PWR_SUSPEND or INTF_PWR_OFF power states,
+the AP shall assume that the Interface is in the previous power state
+(INTF_PWR_ON). The further action taken by the AP depends on the type of
+failure. In case of a failed power state transition to INTF_PWR_SUSPEND
+or INTF_PWR_OFF power states with power_state_set_result_code field in
+the response showing INTF_PWR_FAIL, the AP may try to forcefully reset
+the Interface. In any other error scenario, the AP may try to re-enable
+all the previously established connections to the Interface.
+
+Note that this operation does not change the power states of the bundles
+in the Interface. The AP shall ensure that the bundles in the Interface
+are transitioned to proper power states as per Table
+:num:`table-interface-bundle-power-state-dependency` before attempting
+this operation.
+
+Greybus Control Interface Power State Set Response
+""""""""""""""""""""""""""""""""""""""""""""""""""
+Table :num:`table-control-interface-power-state-set-response` defines
+the Greybus Control Interface Power State Set response payload. The
+response contains a one-byte result code that indicates the status
+of the Greybus Control Interface Power State Set Operation.
+
+.. figtable::
+    :nofig:
+    :label: table-control-interface-power-state-set-response
+    :caption: Control Protocol Interface Power State Set Response
+    :spec: l l c c l
+
+    =======  ===========  ======  ==========  ===========
+    Offset   Field        Size    Value       Description
+    =======  ===========  ======  ==========  ===========
+    0        result_code  1       Number      Result Code
+    =======  ===========  ======  ==========  ===========
+..
+
+The status field of the response to a Greybus Control Interface Power
+State Set Request shall not be used to check the result of the
+operation. It shall only be used to indicate the result of the Greybus
+communication. If the response to a Greybus Control Interface Power
+State Set Request has status different than GB_OP_SUCCESS, it shall
+indicate that a Greybus communication error occurred and that the
+operation could not be completed; the targeted Interface shall be in the
+same power state as before the request was issued. If the response to a
+Greybus Control Interface Power State Set Request has status
+GB_OP_SUCCESS, it indicates that there was no Greybus communication
+error detected (request and response were successfully exchanged).
+However, it shall not also be considered as a successful Greybus Control
+Interface Power State Set operation.
+
+The result_code field in the response, as described in
+Table :num:`table-control-interface-power-state-set-response` shall be
+used for that unique purpose. In other words, if and only if response
+status field is GB_OP_SUCCESS and result_code field in the response is
+INTF_PWR_OK then the Interface power state set request shall be
+considered as successful. The operation shall otherwise be considered as
+failed in any other combination of these two fields. Note that in case
+of a Greybus communication error, the power_state_set_result_code is not
+meaningful and shall be ignored.
+
+The values of the result_code are defined in Table
+:num:`table-interface-power-state-set-result-code`.
+
+.. figtable::
+    :nofig:
+    :label: table-interface-power-state-set-result-code
+    :caption: Interface Power State Set Result Code
+    :spec: l l l
+
+    ==================  ========  ================================================================================
+    Result Code         Value     Description
+    ==================  ========  ================================================================================
+    INTF_PWR_OK         0         Power state set operation was successful.
+    INTF_PWR_BUSY       1         Power state set operation cannot be attempted as the Interface is busy.
+    INTF_PWR_INVALID    2         Power state set operation cannot be attempted as the state requested is invalid.
+    INTF_PWR_NOSUPP     3         Power state set operation not supported.
+    INTF_PWR_FAIL       4         Power state set operation was attempted and failed.
+    (Reserved)          5-255     (Reserved for future use)
+    ==================  ========  ================================================================================
+..
+
+A response of INTF_PWR_FAIL means that the Interface is in an
+unpredictable state. In order to recover from this scenario, the AP
+shall forcefully reset the Interface.
+
+Greybus Control Bundle Power State Set Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The Greybus Control Bundle Power State Set Operation is sent by the AP
+to request a change to the power state of a Bundle in an Interface. The
+AP shall ensure that the Bundle's Interface is transitioned to a proper
+state before issuing this operation. For example, the Bundle's Interface
+shall be programmed to INTF_PWR_ON power state before the Bundle is
+programmed to BUNDLE_PWR_ON power state. Only the AP shall send this
+operation request, and not the modules.
+
+This operation changes the power state of the specified Bundle and does
+not affect the power state of the Bundle's Interface.
+
+All bundles shall support at least three power states as described in
+Table :num:`table-bundle-power-states`.  Table
+:num:`table-bundle-allowed-power-state-transitions` describes the
+allowed transitions between various Bundle power states.
+
+.. figtable::
+    :nofig:
+    :label: table-bundle-allowed-power-state-transitions
+    :caption: Allowed Bundle Power State Transitions
+    :spec: l l
+
+    ==========================  ==================================
+    Current Power State         Allowed Next Power States
+    ==========================  ==================================
+    BUNDLE_PWR_OFF              BUNDLE_PWR_ON
+    BUNDLE_PWR_SUSPEND          BUNDLE_PWR_ON
+    BUNDLE_PWR_ON               BUNDLE_PWR_OFF, BUNDLE_PWR_SUSPEND
+    ==========================  ==================================
+..
+
+Greybus Control Bundle Power State Set Request
+""""""""""""""""""""""""""""""""""""""""""""""
+Table :num:`table-control-bundle-power-state-set-request` defines the
+Greybus Control Bundle Power State Set request payload. The request
+contains a one-byte field specifying the unique ID of the Bundle within
+the Interface and a one-byte field specifying the target power state of
+the Bundle. The Bundle ID shall correspond to the bundles defined in the
+:ref:`Interface Manifest <manifest-description>`.`
+
+.. figtable::
+    :nofig:
+    :label: table-control-bundle-power-state-set-request
+    :caption: Control Protocol Bundle Powet State Set Request
+    :spec: l l c c l
+
+    =======  ============  ======  ==========  =====================================
+    Offset   Field         Size    Value       Description
+    =======  ============  ======  ==========  =====================================
+    0        id            1       Number      ID of the bundle within the Interface
+    1        pwr_state     1       Number      Target Bundle power state
+    =======  ============  ======  ==========  =====================================
+..
+
+The pwr_state field in the request payload allows the AP to specify
+the target power state of the Bundle. All bundles
+shall at least support the power states defined in Table
+:num:`table-bundle-power-states`.
+
+.. figtable::
+    :nofig:
+    :label: table-bundle-power-states
+    :caption: Bundle Power States
+    :spec: l r l
+
+    ==================   ============  ==================================================================
+    Power State          Value         Description
+    ==================   ============  ==================================================================
+    BUNDLE_PWR_OFF       0x00          Bundle Power Off State.
+    BUNDLE_PWR_SUSPEND   0x01          Bundle Power Suspend State.
+    BUNDLE_PWR_ON        0x02          Bundle Power On State.
+    (Reserved)           0x03-0xFF     (Reserved for future use)
+    ==================   ============  ==================================================================
+..
+
+The BUNDLE_PWR_ON power state implies that the Bundle logic is powered
+on and the Bundle can be operational. The AP shall transition the Bundle
+power state to BUNDLE_PWR_ON prior to initiating any new Greybus
+operation towards the Bundle.
+
+The BUNDLE_PWR_SUSPEND power state implies that the logic pertaining to
+the Bundle is in a low power state from which the wakeup latency is
+typically shorter than the wakeup latency from BUNDLE_PWR_OFF state.
+
+The BUNDLE_PWR_OFF power state implies that the Bundle logic is fully
+powered off.
+
+The CPort connections in the bundles are not disabled in this operation.
+But neither the AP nor the module shall attempt a Greybus connection
+operation after a successful Bundle power state transition to
+BUNDLE_PWR_SUSPEND or BUNDLE_PWR_OFF power state.
+
+Note that this operation does not change the power state of the
+Interface containing the Bundle. The AP shall ensure that the Interface
+containing the Bundle is transitioned to BUNDLE_PWR_ON power state
+before issuing this operation to the Bundle.
+
+Greybus Control Bundle Power State Set Response
+"""""""""""""""""""""""""""""""""""""""""""""""
+Table :num:`table-control-bundle-power-state-set-response` defines the
+Greybus Control Bundle Set Power State respose payload. The response
+contains a one-byte result code that indicates the status of the
+Greybus Control Bundle Power State Set Operation.
+
+.. figtable::
+    :nofig:
+    :label: table-control-bundle-power-state-set-response
+    :caption: Control Protocol Bundle Power State Set Response
+    :spec: l l c c l
+
+    =======  ==============================  ======  ==========  ===========
+    Offset   Field                           Size    Value       Description
+    =======  ==============================  ======  ==========  ===========
+    0        result_code  1       Number      Status Code
+    =======  ==============================  ======  ==========  ===========
+..
+
+The status field of the response to a Greybus Control Bundle Power State
+Set Request shall not be used to check the result of the operation. It
+shall only be used to indicate the result of the Greybus communication.
+If the response to a Greybus Control Bundle Power State Set Request has
+status different than GB_OP_SUCCESS, it shall indicate that a Greybus
+communication error occurred and that the operation could not be
+completed; the targeted Bundle shall be in the same power state as
+before the request was issued. If the response to a Greybus Control
+Bundle Power State Set Request has status GB_OP_SUCCESS, it shall
+indicate that there was no Greybus communication error detected (request
+and response were successfully exchanged).  However, it shall not also
+be considered as a successful Greybus Control Bundle Power State Set
+operation.
+
+The result_code field in the response, as described in Table
+:num:`table-control-bundle-power-state-set-response` shall be used for
+that unique purpose. In other words, if and only if response status
+field is GB_OP_SUCCESS and result_code field in the response is
+BUNDLE_PWR_OK then the Bundle power state set request shall be
+considered as successful. The operation shall otherwise be considered as
+failed in any other combination of these two fields.Note that in case of
+a Greybus communication error, the power_state_set_result_code is not
+meaningful and shall be ignored.
+
+The values of the result_code are defined in Table
+:num:`table-bundle-power-state-set-result-code`.
+
+.. figtable::
+    :nofig:
+    :label: table-bundle-power-state-set-result-code
+    :caption: Bundle Power State Set Result Code
+    :spec: l l l
+
+    ====================  ========  ================================================================================
+    Result Code           Value     Description
+    ====================  ========  ================================================================================
+    BUNDLE_PWR_OK         0         Power state set operation was successful.
+    BUNDLE_PWR_BUSY       1         Power state set operation cannot be attempted as the Bundle is busy.
+    BUNDLE_PWR_INVALID    2         Power state set operation cannot be attempted as the state requested is invalid.
+    BUNDLE_PWR_NOSUPP     3         Power state set operation not supported.
+    BUNDLE_PWR_FAIL       4         Power state set operation was attempted and failed.
+    (Reserved)            5-255     (Reserved for future use)
+    ====================  ========  ================================================================================
+..
+
+A response of BUNDLE_PWR_FAIL means that the Bundle is in an
+unpredictable state. In order to recover from this scenario, the AP
+shall forcefully reset the Bundle's Interface.
 
 .. _svc-protocol:
 

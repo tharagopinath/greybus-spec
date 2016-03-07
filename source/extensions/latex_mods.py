@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 import os
 
 from docutils.io import FileOutput
@@ -14,15 +15,17 @@ from sphinx.util.texescape import tex_escape_map
 import sphinx.writers.latex
 
 # remove usepackage for sphinx here, we add it later in the preamble in conf.py
-sphinx.writers.latex.HEADER = sphinx.writers.latex.HEADER.replace('\usepackage{sphinx}', '')
+sphinx.writers.latex.HEADER = sphinx.writers.latex.HEADER.replace('\\usepackage{sphinx}', '')
+sphinx.writers.latex.HEADER = sphinx.writers.latex.HEADER.replace('%(numfig_format)s', '')
 
 BaseTranslator = sphinx.writers.latex.LaTeXTranslator
 
 class DocTranslator(BaseTranslator):
-    
+
     def __init__(self, *args, **kwargs):
         BaseTranslator.__init__(self, *args, **kwargs)
         self.verbatim = None
+        self.previous_spanning_row = 0
     def visit_caption(self, node):
         caption_idx = node.parent.index(node)
         if caption_idx > 0:
@@ -30,7 +33,7 @@ class DocTranslator(BaseTranslator):
         else:
             look_node = node.parent
 
-        short_caption = unicode(look_node.get('alt', '')).translate(tex_escape_map)
+        short_caption = look_node.get('alt', '').translate(tex_escape_map)
         if short_caption != "":
             short_caption = '[%s]' % short_caption
 

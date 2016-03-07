@@ -242,11 +242,11 @@ receiving Interface that has been connected.
     :caption: Control Protocol Connected Request
     :spec: l l c c l
 
-    =======  ==============  ======  ============    ===========================
-    Offset   Field           Size    Value           Description
-    =======  ==============  ======  ============    ===========================
-    0        cport_id        2       CPort ID        CPort that is now connected
-    =======  ==============  ======  ============    ===========================
+    =======  ==============  ======  =======    ===========================
+    Offset   Field           Size    Value      Description
+    =======  ==============  ======  =======    ===========================
+    0        cport_id        2       Number     CPort that is now connected
+    =======  ==============  ======  =======    ===========================
 
 ..
 
@@ -276,11 +276,11 @@ receiving Interface that is no longer connected.
     :caption: Control Protocol Disconnected Request
     :spec: l l c c l
 
-    =======  ==============  ======  ============    ===========================
-    Offset   Field           Size    Value           Description
-    =======  ==============  ======  ============    ===========================
-    0        cport_id        2       CPort ID        CPort that is now disconnected
-    =======  ==============  ======  ============    ===========================
+    =======  ==============  ======  =======    ===========================
+    Offset   Field           Size    Value      Description
+    =======  ==============  ======  =======    ===========================
+    0        cport_id        2       Number     CPort that is now disconnected
+    =======  ==============  ======  =======    ===========================
 
 ..
 
@@ -371,14 +371,14 @@ Unused slots in the response shall contain zero.
     Offset   Field           Size    Value       Description
     =======  ==============  ======  ==========  ===================================================================
     0        maximum_jitter  4       Number      Maximum jitter to accept when calculating frame-time in nanoseconds
-    4        time_sync0      8       Frame-Time  Authoritative frame-time at TIME_SYNC0
-    12       time_sync1      8       Frame-Time  Authoritative frame-time at TIME_SYNC1
-    20       time_sync2      8       Frame-Time  Authoritative frame-time at TIME_SYNC2
-    28       time_sync3      8       Frame-Time  Authoritative frame-time at TIME_SYNC3
-    36       time_sync4      8       Frame-Time  Authoritative frame-time at TIME_SYNC4
-    44       time_sync5      8       Frame-Time  Authoritative frame-time at TIME_SYNC5
-    52       time_sync6      8       Frame-Time  Authoritative frame-time at TIME_SYNC6
-    60       time_sync7      8       Frame-Time  Authoritative frame-time at TIME_SYNC7
+    4        time_sync0      8       Number      Authoritative frame-time at TIME_SYNC0
+    12       time_sync1      8       Number      Authoritative frame-time at TIME_SYNC1
+    20       time_sync2      8       Number      Authoritative frame-time at TIME_SYNC2
+    28       time_sync3      8       Number      Authoritative frame-time at TIME_SYNC3
+    36       time_sync4      8       Number      Authoritative frame-time at TIME_SYNC4
+    44       time_sync5      8       Number      Authoritative frame-time at TIME_SYNC5
+    52       time_sync6      8       Number      Authoritative frame-time at TIME_SYNC6
+    60       time_sync7      8       Number      Authoritative frame-time at TIME_SYNC7
     =======  ==============  ======  ==========  ===================================================================
 
 Greybus Control TimeSync Authoritative Response
@@ -399,7 +399,7 @@ propogration offset calculated by the Interface.
     Offset   Field         Size    Value       Description
     =======  ============  ======  ==========  ======================================================
     0        prop_offset   4       Number      Calculated TIME_SYNC propogation offset in nanoseconds
-    4        time_sync     8       Frame-Time  Authoritative frame-time at the last TIME_SYNC
+    4        time_sync     8       Number      Authoritative frame-time at the last TIME_SYNC
     =======  ============  ======  ==========  ======================================================
 ..
 
@@ -567,6 +567,21 @@ Conceptually, the operations in the Greybus SVC Protocol are:
     The AP Module uses this operation to "ping" the SVC to see if it is still
     alive and receiving messages properly.
 
+.. c:function:: int pwrmon_rail_count_get(u8 *rail_count);
+
+    The AP uses this operation to retrieve the number of power rails
+    for which power measurements are available.
+
+.. c:function:: int pwrmon_rail_names_get(u8 **rails_buf);
+
+    The AP uses this operation to retrieve the list of names of all
+    supported power rails.
+
+.. c:function:: int pwrmon_sample_get(u8 rail_id, u8 type, u32 *value);
+
+    The AP uses this operation to retrieve a single measurement
+    (current, voltage or power) for a single rail.
+
 Greybus SVC Operations
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -585,31 +600,34 @@ response type values are shown.
     :caption: SVC Operation Types
     :spec: l l l
 
-    ===========================  =============  ==============
-    SVC Operation Type           Request Value  Response Value
-    ===========================  =============  ==============
-    Invalid                      0x00           0x80
-    Protocol Version             0x01           0x81
-    SVC Hello                    0x02           0x82
-    Interface device ID          0x03           0x83
-    Interface hotplug            0x04           0x84
-    Interface hot unplug         0x05           0x85
-    Interface reset              0x06           0x86
-    Connection create            0x07           0x87
-    Connection destroy           0x08           0x88
-    DME peer get                 0x09           0x89
-    DME peer set                 0x0a           0x8a
-    Route create                 0x0b           0x8b
-    Route destroy                0x0c           0x8c
-    TimeSync enable              0x0d           0x8d
-    TimeSync disable             0x0e           0x8e
-    TimeSync authoritative       0x0f           0x8f
-    Interface set power mode     0x10           0x90
-    Interface Eject              0x11           0x91
-    Key Event                    0x12           N/A
-    Ping                         0x13           0x93
-    (all other values reserved)  0x14..0x7f     0x94..0xff
-    ===========================  =============  ==============
+    ===============================  =============  ==============
+    SVC Operation Type               Request Value  Response Value
+    ===============================  =============  ==============
+    Invalid                          0x00           0x80
+    Protocol Version                 0x01           0x81
+    SVC Hello                        0x02           0x82
+    Interface device ID              0x03           0x83
+    Interface hotplug                0x04           0x84
+    Interface hot unplug             0x05           0x85
+    Interface reset                  0x06           0x86
+    Connection create                0x07           0x87
+    Connection destroy               0x08           0x88
+    DME peer get                     0x09           0x89
+    DME peer set                     0x0a           0x8a
+    Route create                     0x0b           0x8b
+    Route destroy                    0x0c           0x8c
+    TimeSync enable                  0x0d           0x8d
+    TimeSync disable                 0x0e           0x8e
+    TimeSync authoritative           0x0f           0x8f
+    Interface set power mode         0x10           0x90
+    Interface Eject                  0x11           0x91
+    Key Event                        0x12           N/A
+    Ping                             0x13           0x93
+    Power Monitor get rail count     0x14           0x94
+    Power Monitor get rail names     0x15           0x95
+    Power Monitor get sample         0x16           0x96
+    (all other values reserved)      0x17..0x7f     0x97..0xff
+    ===============================  =============  ==============
 
 ..
 
@@ -649,9 +667,9 @@ environment and location of the AP interface.
     =======  ================  ===========  ===============  ===========================
     Offset   Field             Size         Value            Description
     =======  ================  ===========  ===============  ===========================
-    0        endo_generation   2            Endo Generation  Endo Generation ID
-    2        frame_variant     2            Frame Variant    Endo Frame Variant within the Generation
-    4        intf_id           1            AP Interface ID  AP Interface ID
+    0        endo_generation   2            Number           Endo Generation ID
+    2        frame_variant     2            Number           Endo Frame Variant within the Generation
+    4        intf_id           1            Number           AP Interface ID
     =======  ================  ===========  ===============  ===========================
 
 ..
@@ -684,9 +702,9 @@ SVC returns the value of the DME attribute requested.
     =======  ==============  ===========  ===============  ===========================
     Offset   Field           Size         Value            Description
     =======  ==============  ===========  ===============  ===========================
-    0        intf_id         1            Interface ID     Interface ID
-    1        attr            2            DME Attribute    |unipro| DME Attribute
-    3        selector        2            Selector index   |unipro| DME selector
+    0        intf_id         1            Number           Interface ID
+    1        attr            2            Number           |unipro| DME Attribute
+    3        selector        2            Number           |unipro| DME selector
     =======  ==============  ===========  ===============  ===========================
 
 ..
@@ -708,8 +726,8 @@ as the value of the attribute, if applicable.
     =======  ==============  ===========  ================  =========================================
     Offset   Field           Size         Value             Description
     =======  ==============  ===========  ================  =========================================
-    0        result_code     2            ConfigResultCode  |unipro| DME Peer Get ConfigResultCode
-    2        attr_value      4            Attribute value   |unipro| DME Peer Get DME Attribute value
+    0        result_code     2            Number            |unipro| DME Peer Get ConfigResultCode
+    2        attr_value      4            Number            |unipro| DME Peer Get DME Attribute value
     =======  ==============  ===========  ================  =========================================
 
 ..
@@ -736,10 +754,10 @@ specific attributes located in the |unipro| stack of an Interface.
     =======  ==============  ===========  ===============  ===================================
     Offset   Field           Size         Value            Description
     =======  ==============  ===========  ===============  ===================================
-    0        intf_id         1            Interface ID     Interface ID
-    1        attr            2            DME Attribute    |unipro| DME Attribute
-    3        selector        2            Selector index   |unipro| DME selector
-    5        value           4            Attribute value  |unipro| DME Attribute value to set
+    0        intf_id         1            Number           Interface ID
+    1        attr            2            Number           |unipro| DME Attribute
+    3        selector        2            Number           |unipro| DME selector
+    5        value           4            Number           |unipro| DME Attribute value to set
     =======  ==============  ===========  ===============  ===================================
 
 ..
@@ -760,7 +778,7 @@ the ConfigResultCode as defined in the |unipro| specification.
     =======  ==============  ===========  ================  =========================================
     Offset   Field           Size         Value             Description
     =======  ==============  ===========  ================  =========================================
-    0        result_code     2            ConfigResultCode  |unipro| DME Peer Set ConfigResultCode
+    0        result_code     2            Number            |unipro| DME Peer Set ConfigResultCode
     =======  ==============  ===========  ================  =========================================
 
 ..
@@ -788,8 +806,8 @@ of two Interfaces to be connected.
     =======  ==============  ======  ==========  ===========================
     Offset   Field           Size    Value       Description
     =======  ==============  ======  ==========  ===========================
-    0        intf1_id        1       intf1_id    First Interface
-    1        intf2_id        1       intf2_id    Second Interface
+    0        intf1_id        1       Number      First Interface
+    1        intf2_id        1       Number      Second Interface
     =======  ==============  ======  ==========  ===========================
 
 ..
@@ -822,8 +840,8 @@ of two Interfaces to be disconnected.
     =======  ==============  ======  ==========  ===========================
     Offset   Field           Size    Value       Description
     =======  ==============  ======  ==========  ===========================
-    0        intf1_id        1       intf1_id    First Interface
-    1        intf2_id        1       intf2_id    Second Interface
+    0        intf1_id        1       Number      First Interface
+    1        intf2_id        1       Number      Second Interface
     =======  ==============  ======  ==========  ===========================
 
 ..
@@ -874,8 +892,8 @@ destroyed.
     =======  ==============  ======  ============    ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ============    ===========================
-    0        intf_id         1       Interface ID    Interface ID whose device ID is being assigned
-    1        device_id       1       Device ID       |unipro| device ID for Interface
+    0        intf_id         1       Number          Interface ID whose device ID is being assigned
+    1        device_id       1       Number          |unipro| device ID for Interface
     =======  ==============  ======  ============    ===========================
 
 ..
@@ -920,12 +938,12 @@ power-on).
     ======  ==============  ====  ==============  =======================================
     Offset  Field           Size  Value           Description
     ======  ==============  ====  ==============  =======================================
-    0       intf_id         1     Interface ID    Interface that now has a module present
-    1       ddbl1_mfr_id    4     |unipro| VID    |unipro| DDB Level 1 Manufacturer ID
-    5       ddbl1_prod_id   4     |unipro| PID    |unipro| DDB Level 1 Product ID
-    9       ara_vend_id     4     Ara VID         Ara Vendor ID
-    13      ara_prod_id     4     Ara PID         Ara Product ID
-    17      serial_number   8     Serial number   Module serial number that uniquely identifies modules with same ARA VID/PIDs
+    0       intf_id         1     Number          Interface that now has a module present
+    1       ddbl1_mfr_id    4     Number          |unipro| DDB Level 1 Manufacturer ID
+    5       ddbl1_prod_id   4     Number          |unipro| DDB Level 1 Product ID
+    9       ara_vend_id     4     Number          Ara Vendor ID
+    13      ara_prod_id     4     Number          Ara Product ID
+    17      serial_number   8     Number          Module serial number that uniquely identifies modules with same ARA VID/PIDs
     ======  ==============  ====  ==============  =======================================
 
 ..
@@ -967,7 +985,7 @@ before sending a hot unplug.
     =======  ==============  ======  ============    ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ============    ===========================
-    0        intf_id         1       Interface ID    Interface that no longer has an attached module
+    0        intf_id         1       Number          Interface that no longer has an attached module
     =======  ==============  ======  ============    ===========================
 
 ..
@@ -1002,7 +1020,7 @@ Interface needs to be reset.
     =======  ==============  ======  ============    ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ============    ===========================
-    0        intf_id         1       Interface ID    Interface to reset
+    0        intf_id         1       Number          Interface to reset
     =======  ==============  ======  ============    ===========================
 
 ..
@@ -1040,20 +1058,20 @@ configuration information associated with the power mode change.
    =======  ==================    =========   ======================   =============================================
    Offset   Field                 Size        Value                    Description
    =======  ==================    =========   ======================   =============================================
-   0        intf_id               1           Interface ID             Interface whose power mode to change
-   1        hs_series             1           1 or 2                   Frequency series in high speed mode; see Table :num:`table-svc-unipro-hs-series`
-   2        tx_mode               1           |unipro| Power Mode      Power mode for TX; see Table :num:`table-svc-unipro-pwrmode`
+   0        intf_id               1           Number                   Interface whose power mode to change
+   1        hs_series             1           Number                   Frequency series in high speed mode; see Table :num:`table-svc-unipro-hs-series`
+   2        tx_mode               1           Number                   Power mode for TX; see Table :num:`table-svc-unipro-pwrmode`
    3        tx_gear               1           Number                   Gear for TX lanes
    4        tx_nlanes             1           Number                   Number of active TX lanes
    5        tx_amplitude          1           Number                   TX signal amplitude; see Table :num:`table-svc-pwrm-tx-ampl`
    6        tx_hs_equalizer       1           Number                   HS TX signal de-emphasis; see Table :num:`table-svc-unipro-pwrm-tx-hs-equal`
-   7        rx_mode               1           |unipro| Power Mode      Power mode for RX; see Table :num:`table-svc-unipro-pwrmode`
+   7        rx_mode               1           Number                   Power mode for RX; see Table :num:`table-svc-unipro-pwrmode`
    8        rx_gear               1           Number                   Gear for RX lanes
    9        rx_nlanes             1           Number                   Number of active RX lanes
    10       flags                 1           Bit mask                 See Table :num:`table-svc-pwrm-flags`
    11       quirks                4           Bit mask                 See Table :num:`table-svc-pwrm-quirks`
-   15       local_l2timerdata     24          |unipro| L2 timer data   L2 timer configuration data for power mode change (local peer)
-   39       remote_l2timerdata    24          |unipro| L2 timer data   L2 timer configuration data for power mode change (remote peer)
+   15       local_l2timerdata     24          Number                   L2 timer configuration data for power mode change (local peer)
+   39       remote_l2timerdata    24          Number                   L2 timer configuration data for power mode change (remote peer)
    =======  ==================    =========   ======================   =============================================
 
 ..
@@ -1310,11 +1328,11 @@ Greybus SVC Interface Set Power Mode Response payload.
    :caption: SVC Protocol Interface Set Power Mode Response
    :spec: l l c c l
 
-   =======  ======================     =========   =====================   ==============================
-   Offset   Field                      Size        Value                   Description
-   =======  ======================     =========   =====================   ==============================
-   0        pwr_change_result_code     1           PowerChangeResultCode   |unipro| PowerChangeResultCode
-   =======  ======================     =========   =====================   ==============================
+   =======  ======================     =========   ========   ==============================
+   Offset   Field                      Size        Value      Description
+   =======  ======================     =========   ========   ==============================
+   0        pwr_change_result_code     1           Number     |unipro| PowerChangeResultCode
+   =======  ======================     =========   ========   ==============================
 
 ..
 
@@ -1380,10 +1398,10 @@ and are defined in table :num:`table-svc-connection-create-request-flags`.
     =======  ==============  ======  ==================  ===========================
     Offset   Field           Size    Value               Description
     =======  ==============  ======  ==================  ===========================
-    0        intf1_id        1       Interface ID        First Interface
-    1        cport1_id       2       CPort ID            CPort on first Interface
-    3        intf2_id        1       Interface ID        Second Interface
-    4        cport2_id       2       CPort ID            CPort on second Interface
+    0        intf1_id        1       Number              First Interface
+    1        cport1_id       2       Number              CPort on first Interface
+    3        intf2_id        1       Number              Second Interface
+    4        cport2_id       2       Number              CPort on second Interface
     6        tc              1       Traffic class       |unipro| traffic class
     7        flags           1       Connection flags    |unipro| connection flags
     =======  ==============  ======  ==================  ===========================
@@ -1439,10 +1457,10 @@ the connection to be destroyed.
     =======  ==============  ======  ==================  ===========================
     Offset   Field           Size    Value               Description
     =======  ==============  ======  ==================  ===========================
-    0        intf1_id        1       Interface ID        First Interface
-    1        cport1_id       2       CPort ID            CPort on first Interface
-    3        intf2_id        1       Interface ID        Second Interface
-    4        cport2_id       2       CPort ID            CPort on second Interface
+    0        intf1_id        1       Number              First Interface
+    1        cport1_id       2       Number              CPort on first Interface
+    3        intf2_id        1       Number              Second Interface
+    4        cport2_id       2       Number              CPort on second Interface
     =======  ==============  ======  ==================  ===========================
 
 ..
@@ -1536,15 +1554,17 @@ response shall contain zero.
     =======  ============  ======  ==========  ======================================
     Offset   Field         Size    Value       Description
     =======  ============  ======  ==========  ======================================
-    0        time_sync0    8       Frame-Time  Authoritative frame-time at TIME_SYNC0
-    8        time_sync1    8       Frame-Time  Authoritative frame-time at TIME_SYNC1
-    16       time_sync2    8       Frame-Time  Authoritative frame-time at TIME_SYNC2
-    24       time_sync3    8       Frame-Time  Authoritative frame-time at TIME_SYNC3
-    32       time_sync4    8       Frame-Time  Authoritative frame-time at TIME_SYNC4
-    40       time_sync5    8       Frame-Time  Authoritative frame-time at TIME_SYNC5
-    48       time_sync6    8       Frame-Time  Authoritative frame-time at TIME_SYNC6
-    56       time_sync7    8       Frame-Time  Authoritative frame-time at TIME_SYNC7
+    0        time_sync0    8       Number      Authoritative frame-time at TIME_SYNC0
+    8        time_sync1    8       Number      Authoritative frame-time at TIME_SYNC1
+    16       time_sync2    8       Number      Authoritative frame-time at TIME_SYNC2
+    24       time_sync3    8       Number      Authoritative frame-time at TIME_SYNC3
+    32       time_sync4    8       Number      Authoritative frame-time at TIME_SYNC4
+    40       time_sync5    8       Number      Authoritative frame-time at TIME_SYNC5
+    48       time_sync6    8       Number      Authoritative frame-time at TIME_SYNC6
+    56       time_sync7    8       Number      Authoritative frame-time at TIME_SYNC7
     =======  ============  ======  ==========  ======================================
+
+..
 
 Greybus SVC Ping Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1587,7 +1607,7 @@ Interface shall be ejected.
     =======  ==============  ======  ============    ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ============    ===========================
-    0        intf_id         1       Interface ID    Interface that shall be ejected
+    0        intf_id         1       Number          Interface that shall be ejected
     =======  ==============  ======  ============    ===========================
 
 ..
@@ -1671,7 +1691,164 @@ included in Key Event Request.
     |_|                   (all other values reserved)           0x02..0xFF
     ====================  ====================================  ============
 
+Greybus SVC Power Monitor Get Rail Count Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Power Monitor Get Rail Count operation retrieves the
+number of power rails for which power measurement is supported.
+
+Greybus SVC Power Monitor Get Rail Count Request
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Monitor Get Rail Count request is sent from
+the AP only. It has no payload.
+
+Greybus SVC Power Monitor Get Rail Count Response
+"""""""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Monitor Get Rail Count response contains
+a 1-byte field 'rail_count'. The maximum supported number of rails
+is 254, 255 (0xff) is an invalid value. The rail count can equal 0
+in which case no rail can be measured by the SVC.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-powermon-get-rail-count-response
+    :caption: SVC Power Monitor Get Rail Count Response
+    :spec: l l l l l
+
+    =======  ==============  ===========  ==========      ===========================
+    Offset   Field           Size         Value           Description
+    =======  ==============  ===========  ==========      ===========================
+    0        rail_count      1            Number          Number of power rails
+    =======  ==============  ===========  ==========      ===========================
+
 ..
+
+Greybus SVC Power Monitor Get Rail Names Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Power Monitor Get Rail Names operation requests
+the names of all power rails for which power measurement is supported.
+
+Greybus SVC Power Monitor Get Rail Names Request
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Monitor Get Rail Names request is sent from
+the AP only. It has no payload.
+
+Greybus SVC Power Monitor Get Rail Names Response
+"""""""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Monitor Get Rail Names response is comprised of
+human-readable names for rails that support voltage, current and power
+measurement. Each name consists of a fixed 32-byte sub-buffer
+containing a rail name padded with zero bytes. A rail name is
+comprised of a subset of [US-ASCII]_ characters: lower- and upper-case
+alphanumerics and the character '_'. A rail name is from 1-32 bytes
+long; a 32-byte name has no pad bytes.
+
+The number of these buffers shall be exactly the number returned by
+a prior Greybus SVC Power Monitor Get Rail Name Count operation.
+
+If there are no measurable power rails on the platform,
+the GB_OP_INVALID Greybus error shall be returned in response to this
+request.
+
+Each rail has an implicit 'Rail ID' which is equal to its position in
+the array of rail names returned by this response. The rail whose name
+is first in the array shall have Rail ID 0, the second shall have Rail
+ID 1, and so on.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-powermon-get-rail-names-response
+    :caption: SVC Power Monitor Get Rail Names Response
+    :spec: l l l l l
+
+    =======  ==============  ===========  ==========      ===========================
+    Offset   Field           Size         Value           Description
+    =======  ==============  ===========  ==========      ===========================
+    0        rail_1_name     32           String          Rail #1 name
+    32       rail_2_name     32           String          Rail #2 name
+    (...)
+    =======  ==============  ===========  ==========      ===========================
+
+..
+
+Greybus SVC Power Monitor Get Sample Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Power Monitor Get Sample operation shall be used by
+the AP to retrieve a single measurement.
+
+Greybus SVC Power Monitor Get Sample Request
+""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Monitor Get Sample request is sent from the AP
+only. It contains the ID of the rail and the measurement type
+(current, voltage, power).
+
+.. figtable::
+    :nofig:
+    :label: table-svc-powermon-get-sample-request
+    :caption: SVC Power Monitor Get Sample Request
+    :spec: l l l l l
+
+    =======  ==============  ===========  ==========      ===========================
+    Offset   Field           Size         Value           Description
+    =======  ==============  ===========  ==========      ===========================
+    0        rail_id         1            Number          ID of the rail that shall be measured
+    1        type            1            Number          Measurement type indicator (:ref:`svc_pwrmon_measurement_types`)
+    =======  ==============  ===========  ==========      ===========================
+
+..
+
+.. _svc_pwrmon_measurement_types:
+
+Greybus SVC Power Monitor Set Sample Type Indicators
+""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+.. figtable::
+    :nofig:
+    :label: table-svc-pwrmon-measurement-types
+    :caption: SVC Power Monitor measurement types
+    :spec: l l l
+
+    ============================  ========================================  ============
+    Measurement type              Brief Description                         Value
+    ============================  ========================================  ============
+    GB_SVC_PWRMON_TYPE_INVALID    Invalid request value                     0x00
+    GB_SVC_PWRMON_TYPE_CURR       Current measurement in microamps (uA)     0x01
+    GB_SVC_PWRMON_TYPE_VOL        Voltage measurement in microvolts (uV)    0x02
+    GB_SVC_PWRMON_TYPE_PWR        Power measurement in microwatts (uW)      0x03
+    |_|                           (all other values reserved)               0x04..0xFF
+    ============================  ========================================  ============
+
+..
+
+Greybus SVC Power Monitor Get Sample Response
+"""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Monitor Get Sample response contains
+the measured value in a 4-byte unsigned integer. Units in which
+the retrieved values are represented are as follows: microvolts
+for voltage, microamps for current and microwatts for power.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-powermon-get-sample-response
+    :caption: SVC Power Monitor Get Sample Response
+    :spec: l l l l l
+
+    =======  ==============  ===========  ==========      ===========================
+    Offset   Field           Size         Value           Description
+    =======  ==============  ===========  ==========      ===========================
+    0        measurement     4            Number          Measured value
+    =======  ==============  ===========  ==========      ===========================
+
+..
+
 .. _firmware-protocol:
 
 Firmware Protocol

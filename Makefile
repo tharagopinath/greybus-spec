@@ -30,6 +30,7 @@ GEN_PNG_GRAPHS  = $(DOT_GRAPHS:.dot=.png)
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
+	@echo "  singlehtml to make standalone single HTML file"
 	@echo "  html       to make standalone HTML files"
 	@echo "  latexpdf   to make LaTeX files and run them through pdflatex"
 
@@ -42,7 +43,12 @@ $(DOT_GRAPH_DIR)/%.png: $(DOT_GRAPH_DIR)/%.dot
 	@dot -Tpng -Gsize=4,5\! $< -o $@
 	@echo DOT: $<
 
-all:	html latexpdf
+all:	html latexpdf singlehtml
+
+singlehtml: $(GEN_PNG_GRAPHS)
+	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
+	@echo
+	@echo "Build finished. The single HTML page is in $(BUILDDIR)/singlehtml."
 
 html: $(GEN_PNG_GRAPHS)
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

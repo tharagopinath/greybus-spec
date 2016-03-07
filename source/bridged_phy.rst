@@ -295,7 +295,7 @@ output.
     =======  ==============  ======  ==========      ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ==========      ===========================
-    0        direction       1       0 or 1          Direction (0 for output, 1 for input)
+    0        direction       1       Number          Direction (0 for output, 1 for input)
     =======  ==============  ======  ==========      ===========================
 
 ..
@@ -356,7 +356,7 @@ line and its initial value.
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ==========      ===========================
     0        which           1       Number          Controller-relative GPIO line number
-    1        value           1       0 or 1          Initial value (0 is low, 1 is high)
+    1        value           1       Number          Initial value (0 is low, 1 is high)
     =======  ==============  ======  ==========      ===========================
 
 ..
@@ -408,7 +408,7 @@ line in question.
     =======  ==============  ======  ==========      ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ==========      ===========================
-    0        value           1       0 or 1          Value (0 is low, 1 is high)
+    0        value           1       Number          Value (0 is low, 1 is high)
     =======  ==============  ======  ==========      ===========================
 
 ..
@@ -437,7 +437,7 @@ be set.
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ==========      ===========================
     0        which           1       Number          Controller-relative GPIO line number
-    1        value           1       0 or 1          Initial value (0 is low, 1 is high)
+    1        value           1       Number          Initial value (0 is low, 1 is high)
     =======  ==============  ======  ==========      ===========================
 
 .. todo::
@@ -874,7 +874,7 @@ limits and default values of certain configurations of a device.
     2        bpw             1       Number          bits per word supported by device
     3        max_speed_hz    4       Number          Higher limit for transfer speed
     7        device_type     1       Number          :ref:`spi-device-type`
-    8        name            32      Characters      Name and/or Device driver alias
+    8        name            32      UTF-8           Name and/or Device driver alias
     =======  ==============  ======  ==========      ===========================
 
 ..
@@ -964,10 +964,10 @@ transfer request.
     0              chip-select     1         Number             chip-select pin for the slave device
     1              mode            1         Number             :ref:`spi-mode-bits`
     2              count           2         Number             Number of :ref:`gb_spi_transfer <gb_spi_transfer>` descriptors
-    4              op[1]           12        gb_spi_transfer    First SPI :ref:`gb_spi_transfer <gb_spi_transfer>` descriptor in the transfer
-    ...            ...             12        gb_spi_transfer    ...
-    4+12*(N-1)     op[N]           12        gb_spi_transfer    Last SPI :ref:`gb_spi_transfer <gb_spi_transfer>` descriptor
-    4+12*N         data            ...       Data               Data for all the write transfers
+    4              op[1]           13        Structure          First SPI :ref:`gb_spi_transfer <gb_spi_transfer>` descriptor in the transfer
+    ...            ...             13        Structure          ...
+    4+13*(N-1)     op[N]           13        Structure          Last SPI :ref:`gb_spi_transfer <gb_spi_transfer>` descriptor
+    4+13*N         data            ...       Data               Data for all the write transfers
     ==========     ==============  ======    ===============    ===========================
 
 Any data to be written follows the last :ref:`gb_spi_transfer <gb_spi_transfer>`
@@ -1105,7 +1105,7 @@ Greybus UART Send Data Request
 Table :num:`table-uart-send-data-request` defines the Greybus UART
 send data request. This requests that the UART device begin
 transmitting.  The request optionally contains one or more characters
-to to be transmitted.
+to be transmitted.
 
 .. figtable::
     :nofig:
@@ -1117,7 +1117,7 @@ to to be transmitted.
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ===========     ===========================
     0        size            2       Number          Size in bytes of data to be transmitted
-    2        data            *size*  Characters      1 or more bytes of data to be transmitted
+    2        data            *size*  Data            1 or more bytes of data to be transmitted
     =======  ==============  ======  ===========     ===========================
 
 ..
@@ -1159,7 +1159,7 @@ particular character.
     =======  ==============  =======  ==========      ===========================
     0        size            2        Number          Size in bytes of received data
     2        flags           1        Bit mask        :ref:`uart-receive-data-status-flags`
-    3        data            *size*   Characters      1 or more bytes of received data
+    3        data            *size*   Data            1 or more bytes of received data
     =======  ==============  =======  ==========      ===========================
 
 ..
@@ -1355,7 +1355,7 @@ condition that should be generated by the UART device transmit line.
     =======  ==============  ======  ==========      ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ==========      ===========================
-    0        state           1       0 or 1          0 is off, 1 is on
+    0        state           1       Number          0 is off, 1 is on
     =======  ==============  ======  ==========      ===========================
 
 ..
@@ -1773,16 +1773,6 @@ Conceptually, the five operations in the Greybus I2C Protocol are:
     Returns a bitmask indicating the features supported by the I2C
     adapter.
 
-.. c:function:: int set_timeout(u16 timeout_ms);
-
-   Sets the timeout (in milliseconds) the I2C adapter should allow
-   before giving up on an addressed client.
-
-.. c:function:: int set_retries(u8 retries);
-
-   Sets the number of times an adapter should retry an I2C op before
-   giving up.
-
 .. c:function:: int transfer(u8 op_count, struct i2c_op *ops);
 
    Performs an I2C transaction made up of one or more "steps" defined
@@ -1814,8 +1804,8 @@ operation is a request or a response.
     Invalid                      0x00           0x80
     Protocol Version             0x01           0x81
     Functionality                0x02           0x82
-    Timeout                      0x03           0x83
-    Retries                      0x04           0x84
+    Reserved                     0x03           0x83
+    Reserved                     0x04           0x84
     Transfer                     0x05           0x85
     (all other values reserved)  0x06..0x7f     0x86..0xff
     ===========================  =============  ==============
@@ -1911,73 +1901,6 @@ directly from the <linux/i2c.h> header file.
 
 ..
 
-Greybus I2C Set Timeout Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The Greybus I2C set timeout operation allows the requestor to set the
-timeout value to be used by the I2C adapter for non-responsive slave
-devices.
-
-Greybus I2C Set Timeout Request
-"""""""""""""""""""""""""""""""
-
-Table :num:`table-i2c-set-timeout-request` defines the Greybus I2C set
-timeout request. The request contains a 16-bit value representing the
-timeout to be used by an I2C adapter, expressed in milliseconds. If
-the value supplied is zero, an I2C adapter-defined value shall be
-used.
-
-.. figtable::
-    :nofig:
-    :label: table-i2c-set-timeout-request
-    :caption: I2C Protocol Set Timeout Request
-    :spec: l l c c l
-
-    =======  ==============  ======  ==========      ===========================
-    Offset   Field           Size    Value           Description
-    =======  ==============  ======  ==========      ===========================
-    0        msec            2       Number          Timeout period in milliseconds
-    =======  ==============  ======  ==========      ===========================
-
-..
-
-Greybus I2C Set Timeout Response
-""""""""""""""""""""""""""""""""
-
-The Greybus I2C set timeout response message has no payload.
-
-Greybus I2C Set Retries Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The Greybus I2C set retries operation allows the requestor to set the
-number of times the I2C adapter retries I2C messages.
-
-Greybus I2C Set Retries Request
-"""""""""""""""""""""""""""""""
-
-Table :num:`table-i2c-set-retries-request` defines theq Greybus I2C
-set timeout request. The request contains an eight-bit value
-representing the number of retries to be used by an I2C adapter.
-
-.. figtable::
-    :nofig:
-    :label: table-i2c-set-retries-request
-    :caption: I2C Protocol Set Retries Request
-    :spec: l l c c l
-
-    =======  ==============  ======  ==========      ===========================
-    Offset   Field           Size    Value           Description
-    =======  ==============  ======  ==========      ===========================
-    0        count           1       Number          Retry count
-    =======  ==============  ======  ==========      ===========================
-
-..
-
-Greybus I2C Set Retries Response
-""""""""""""""""""""""""""""""""
-
-The Greybus I2C set retries response message has no payload.
-
 Greybus I2C Transfer Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -2056,16 +1979,16 @@ transfer request.
     :caption: I2C Protocol Transfer Request
     :spec: l l c c l
 
-    ===========  ==============  =======  ======   ===================================
-    Offset       Field           Size     Value    Description
-    ===========  ==============  =======  ======   ===================================
-    0            op_count        2        Number   Number of I2C ops in transfer
-    2            op[1]           6        i2c_op   Descriptor for first I2C op in the transfer
-    ...          ...             6        i2c_op   ...
-    2+6*(N-1)    op[N]           6        i2c_op   Descriptor for last I2C op
-    2+6*N        data            6        Data     Data for first write op in the transfer
-    ...          ...             ...      Data     Data for last write op on the transfer
-    ===========  ==============  =======  ======   ===================================
+    ===========  ==============  =======  ==========   ===================================
+    Offset       Field           Size     Value        Description
+    ===========  ==============  =======  ==========   ===================================
+    0            op_count        2        Number       Number of I2C ops in transfer
+    2            op[1]           6        Structure    Descriptor for first I2C op in the transfer
+    ...          ...             6        Structure    ...
+    2+6*(N-1)    op[N]           6        Structure    Descriptor for last I2C op
+    2+6*N        data            6        Data         Data for first write op in the transfer
+    ...          ...             ...      Data         Data for last write op on the transfer
+    ===========  ==============  =======  ==========   ===================================
 
 Any data to be written follows the last op descriptor.  Data for
 the first write op in the array immediately follows the last op in
@@ -2284,7 +2207,7 @@ of parameters for configuring the SDIO controller.
     =======  ==============  ======  ===========     ===========================
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ===========     ===========================
-    0        op              14      gb_sdio_ios     SDIO gb_sdio_ios descriptor
+    0        op              14      Structure       SDIO gb_sdio_ios descriptor
     =======  ==============  ======  ===========     ===========================
 
 Table :num:`table-sdio-setios-descriptor` defines the Greybus SDIO

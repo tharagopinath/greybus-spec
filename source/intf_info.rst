@@ -299,7 +299,7 @@ it. Class types are defined in Table :num:`table-bundle-class`.
     Class type                      Value
     ============================    ==========
     Control                         0x00
-    AP                              0x01
+    Unused                          0x01
     Reserved                        0x02
     Reserved                        0x03
     Reserved                        0x04
@@ -318,7 +318,7 @@ it. Class types are defined in Table :num:`table-bundle-class`.
     Loopback                        0x11
     Audio                           0x12
     Reserved                        0x13
-    SVC                             0x14
+    Unused                          0x14
     Firmware                        0x15
     (All other values reserved)     0x16..0xfd
     Raw                             0xfe
@@ -387,7 +387,7 @@ typically should not be used.)
     Protocol                        Value
     ============================    ==========
     Control                         0x00
-    AP                              0x01
+    Unused                          0x01
     GPIO                            0x02
     I2C                             0x03
     UART                            0x04
@@ -396,7 +396,7 @@ typically should not be used.)
     SDIO                            0x07
     Power Supply                    0x08
     PWM                             0x09
-    I2S Management                  0x0a
+    Unused                          0x0a
     SPI                             0x0b
     Display                         0x0c
     Camera Management               0x0d
@@ -404,7 +404,7 @@ typically should not be used.)
     Lights                          0x0f
     Vibrator                        0x10
     Loopback                        0x11
-    Audio Managemnt                 0x12
+    Audio Management                0x12
     Audio Data                      0x13
     SVC                             0x14
     Firmware                        0x15

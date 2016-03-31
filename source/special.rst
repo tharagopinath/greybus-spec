@@ -45,6 +45,10 @@ only be sent in reply to a request received on its control CPort.
 
 Conceptually, the Operations in the Greybus Control Protocol are:
 
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
+
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
     Refer to :ref:`greybus-protocol-version-operation`.
@@ -75,6 +79,12 @@ Conceptually, the Operations in the Greybus Control Protocol are:
     to the connected request.  This operation is never used for
     control CPort.
 
+.. c:function:: int disconnecting(u16 cport_id);
+
+    This Operation is used by the AP Module to inform an Interface
+    that the process of disconnecting a previously established Greybus
+    connection has begun.
+
 .. c:function:: int disconnected(u16 cport_id);
 
     This Operation is used to notify an Interface that a previously
@@ -103,6 +113,11 @@ Conceptually, the Operations in the Greybus Control Protocol are:
     This Operation is used by the AP to get the current version of the
     interface.
 
+.. c:function:: int bundle_version(u8 bundle_id, u8 *major, u8 *minor);
+
+    This Operation is used by the AP to get the version of the Bundle Class
+    implemented by a Bundle.
+
 Greybus Control Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -124,7 +139,7 @@ type and response type values are shown.
     ===========================  =============  ==============
     Control Operation Type       Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     Reserved                     0x02           0x82
     Get Manifest Size            0x03           0x83
@@ -135,10 +150,21 @@ type and response type values are shown.
     TimeSync disable             0x08           0x88
     TimeSync authoritative       0x09           0x89
     Interface Version            0x0a           0x8a
-    (all other values reserved)  0x0b..0x7f     0x8b..0xff
+    Bundle Version               0x0b           0x8b
+    Disconnecting                0x0c           0x8c
+    (all other values reserved)  0x0d..0x7e     0x8d..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus Control Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus Control Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the Control Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus Control Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -254,6 +280,49 @@ Greybus Control Connected Response
 """"""""""""""""""""""""""""""""""
 
 The Greybus control connected response message contains no payload.
+
+Greybus Control Disconnecting Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus Control Disconnecting Operation is used by the AP Module
+to inform an Interface that the disconnect process has begun for a
+CPort that was previously the subject of a Greybus Control Connected
+Operation.  After sending this request, the AP Module may issue
+responses to requests from the Interface, but it shall send no
+further requests on the CPort given in the Control Disconnecting
+Operation request.  The Interface may send responses to the AP to
+Operations whose requests it received before receiving the Control
+Disconnecting Operation Request, but shall otherwise cease
+transmission on the given CPort.  The AP Module may send a Control
+Disconnecting Operation with a cport_id field equal to zero (i.e.,
+when disconnecting the Control CPort itself), but only after all
+other connections on the interface have been disconnected as
+specified by the Control Protocol Disconnected Operation.
+
+Greybus Control Disconnecting Request
+"""""""""""""""""""""""""""""""""""""
+
+The Greybus Control Disconnecting request supplies the CPort ID on the
+receiving Interface that is being disconnected.
+
+.. figtable::
+    :nofig:
+    :label: table-control-disconnecting-request
+    :caption: Control Protocol Disconnecting Request
+    :spec: l l c c l
+
+    =======  ==============  ======  =======    ===========================
+    Offset   Field           Size    Value      Description
+    =======  ==============  ======  =======    ===========================
+    0        cport_id        2       Number     CPort that is being disconnected
+    =======  ==============  ======  =======    ===========================
+
+..
+
+Greybus Control Disconnecting Response
+""""""""""""""""""""""""""""""""""""""
+
+The Greybus Control Disconnecting response message contains no payload.
 
 Greybus Control Disconnected Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -380,6 +449,7 @@ Unused slots in the response shall contain zero.
     52       time_sync6      8       Number      Authoritative frame-time at TIME_SYNC6
     60       time_sync7      8       Number      Authoritative frame-time at TIME_SYNC7
     =======  ==============  ======  ==========  ===================================================================
+..
 
 Greybus Control TimeSync Authoritative Response
 """""""""""""""""""""""""""""""""""""""""""""""
@@ -434,6 +504,61 @@ contains two 2-byte numbers, major and minor.
     =======  ============  ======  ==========  ===========================
 ..
 
+Greybus Control Bundle Version Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The AP uses this operation to retrieve the version of the Bundle Class
+implemented by a Bundle. The version is represented by two 1-byte numbers,
+major and minor.
+
+The version of a particular Bundle Class advertised by an Interface
+is the same as the version of the document that defines the
+Bundle Class and its subprotocols (so for Bundle Classes defined herein, the
+version is |gb-major|.\ |gb-minor|). In the future, if the Bundle Class
+specifications are removed from this document, the versions will become
+independent of the overall Greybus Specification document.
+
+Greybus Control Bundle Version Request
+""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-control-bundle-version-request` defines the
+Greybus Control Bundle Version Request payload. The request contains the ID of
+the Bundle whose Bundle Class version is to be returned.
+
+.. figtable::
+    :nofig:
+    :label: table-control-bundle-version-request
+    :caption: Control Protocol Bundle Version request
+    :spec: l l c c l
+
+    =======  ============  ======  ==========  ===========================
+    Offset   Field         Size    Value       Description
+    =======  ============  ======  ==========  ===========================
+    0        bundle_id     1       Number      Bundle ID
+    =======  ============  ======  ==========  ===========================
+..
+
+Greybus Control Bundle Version Response
+"""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-control-bundle-version-response` defines the
+Greybus Control Bundle Version Response payload. The response
+contains two 1-byte numbers, major and minor.
+
+.. figtable::
+    :nofig:
+    :label: table-control-bundle-version-response
+    :caption: Control Protocol Bundle Version Response
+    :spec: l l c c l
+
+    =======  ============  ======  ==========  ===========================
+    Offset   Field         Size    Value       Description
+    =======  ============  ======  ==========  ===========================
+    0        major         1       Number      Major number of the version
+    1        minor         1       Number      Minor number of the version
+    =======  ============  ======  ==========  ===========================
+..
+
+
 .. _svc-protocol:
 
 SVC Protocol
@@ -456,6 +581,10 @@ presence of a new module, or notification of changing power
 conditions).
 
 Conceptually, the operations in the Greybus SVC Protocol are:
+
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
 
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
@@ -481,7 +610,7 @@ Conceptually, the operations in the Greybus SVC Protocol are:
     This Operation is used by the AP to direct the SVC to perform a
     |unipro| DME peer set on its behalf.
 
-.. c:function:: int route_create(u8 intf1_id, u8 intf2_id);
+.. c:function:: int route_create(u8 intf1_id, u8 dev1_id, u8 intf2_id, u8 dev2_id);
 
     This Operation is used by the AP to direct the SVC to create
     a route for |unipro| traffic between two interfaces.
@@ -552,21 +681,16 @@ Conceptually, the operations in the Greybus SVC Protocol are:
     The AP Module uses this operation to request the SVC to send the
     authoritative frame-time at each TIME_SYNC strobe.
 
-.. c:function:: int interface_eject(u8 intf_id);
+.. c:function:: int module_eject(u8 primary_intf_id);
 
-    The AP Module uses this operation to request the SVC to perform the
-    necessary action to eject an interface associated with the given
+    The AP Module uses this operation to request the SVC to perform
+    the necessary action to eject a Module having the given primary
     interface id.
 
 .. c:function:: int key_event(u16 key_code, u8 key_event);
 
     The SVC sends this to inform the AP that a key with a specific code has
     generated an event.
-
-.. c:function:: int ping(void);
-
-    The AP Module uses this operation to "ping" the SVC to see if it is still
-    alive and receiving messages properly.
 
 .. c:function:: int pwrmon_rail_count_get(u8 *rail_count);
 
@@ -587,6 +711,29 @@ Conceptually, the operations in the Greybus SVC Protocol are:
 
     The AP uses this operation to retrieve a single measurement
     (current, voltage or power) for the specified interface.
+
+.. c:function:: int power_down(void);
+
+    The AP uses this operation to power down the SVC and all the devices it
+    controls.
+
+.. c:function:: int connection_quiescing(u8 intf_id, u16 cport_id);
+
+    The AP uses this operation to notify the SVC that a connection
+    being torn down is quiescing.
+
+.. c:function:: int module_inserted(u8 primary_intf_id, u8 intf_count);
+
+    The SVC uses this operation to notify the AP Module of the
+    presence of a newly inserted Module.  It sends the request after
+    it has determined the size and position of the Module in the
+    Frame.
+
+.. c:function:: int module_removed(u8 primary_intf_id);
+
+    The SVC uses this operation to notify the AP Module that a
+    Module that was previously the subject of a Greybus SVC Module
+    Inserted operation is no longer present in the Frame.
 
 Greybus SVC Operations
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -609,7 +756,7 @@ response type values are shown.
     ==================================  =============  ==============
     SVC Operation Type                  Request Value  Response Value
     ==================================  =============  ==============
-    Invalid                             0x00           0x80
+    Ping                                0x00           0x80
     Protocol Version                    0x01           0x81
     SVC Hello                           0x02           0x82
     Interface device ID                 0x03           0x83
@@ -626,17 +773,30 @@ response type values are shown.
     TimeSync disable                    0x0e           0x8e
     TimeSync authoritative              0x0f           0x8f
     Interface set power mode            0x10           0x90
-    Interface Eject                     0x11           0x91
+    Module Eject                        0x11           0x91
     Key Event                           0x12           N/A
-    Ping                                0x13           0x93
+    Reserved                            0x13           0x93
     Power Monitor get rail count        0x14           0x94
     Power Monitor get rail names        0x15           0x95
     Power Monitor get sample            0x16           0x96
     Power Monitor interface get sample  0x17           0x97
-    (all other values reserved)         0x18..0x7f     0x98..0xff
+    Power Down                          0x1d           0x9d
+    Connection Quiescing                0x1e           0x9e
+    Module Inserted                     0x1f           0x9f
+    Module Removed                      0x20           0xa0
+    (all other values reserved)         0x21..0x7e     0xa1..0xfe
+    Invalid                             0x7f           0xff
     ==================================  =============  ==============
 
 ..
+
+Greybus SVC Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the SVC Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus SVC Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -801,8 +961,8 @@ Greybus SVC Route Create Request
 """"""""""""""""""""""""""""""""
 
 Table :num:`table-svc-route-create-request` defines the Greybus SVC
-Route Create request payload. The request supplies the Interface IDs
-of two Interfaces to be connected.
+Route Create request payload. The request supplies the Interface IDs and device
+IDs of two Interfaces to be connected.
 
 .. figtable::
     :nofig:
@@ -814,7 +974,9 @@ of two Interfaces to be connected.
     Offset   Field           Size    Value       Description
     =======  ==============  ======  ==========  ===========================
     0        intf1_id        1       Number      First Interface
-    1        intf2_id        1       Number      Second Interface
+    1        dev1_id         1       Number      First Interface device ID
+    2        intf2_id        1       Number      Second Interface
+    3        dev2_id         1       Number      Second Interface device ID
     =======  ==============  ======  ==========  ===========================
 
 ..
@@ -866,8 +1028,9 @@ to request the SVC associate a device id with an Interface.  The
 device id is used by the |unipro| switch to determine how packets
 should be routed through the network.  The AP Module is responsible
 for managing the mapping between Interfaces and |unipro| device ids.
-Note that the SVC always uses device ID 0, and the AP Module always
-uses device ID 1.
+
+Greybus supports 5-bit |unipro| device IDs. Device ID 0 and 1 are reserved
+for the SVC and primary AP Interface respectively.
 
 Greybus SVC Interface Device ID Request
 """""""""""""""""""""""""""""""""""""""
@@ -876,7 +1039,7 @@ Table :num:`table-svc-device-id-request` defines the Greybus SVC
 Interface Device ID Request payload.
 
 The Greybus SVC Interface Device ID Request shall only be sent by the
-AP Module to the SVC.  It supplies the device ID that the SVC will
+AP Module to the SVC.  It supplies the 5-bit device ID that the SVC will
 associate with the indicated Interface.  The AP Module can remove the
 association of an Interface with a device ID by assigning device ID
 value 0. The AP shall not assign a (non-zero) device ID to an
@@ -900,7 +1063,7 @@ destroyed.
     Offset   Field           Size    Value           Description
     =======  ==============  ======  ============    ===========================
     0        intf_id         1       Number          Interface ID whose device ID is being assigned
-    1        device_id       1       Number          |unipro| device ID for Interface
+    1        device_id       1       Number          5-bit |unipro| device ID for Interface
     =======  ==============  ======  ============    ===========================
 
 ..
@@ -1436,6 +1599,45 @@ Greybus SVC Connection Create Response
 
 The Greybus SVC connection create response message contains no payload.
 
+Greybus SVC Connection Quiescing Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AP Module sends this to the SVC to indicate that a connection
+being torn down has entered its quiescing stage before being
+disconnected.  The AP shall have received a response to a Control
+Disconnecting request from the Interface prior to this call.
+This operation allows the SVC to prepare the underlying |unipro|
+connection for an orderly shutdown before it is finally disconnected.
+
+Greybus SVC Connection Quiescing Request
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Table :num:`table-svc-connection-quiescing-request` defines the Greybus
+SVC Connection Quiescing Request payload.  The Greybus SVC
+Connection Quiescing request is sent only by the AP Module to the
+SVC.  The (Interface ID, CPort ID) pair defines the Connection being
+quiesced.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-connection-quiescing-request
+    :caption: SVC Protocol Connection Quiescing Request
+    :spec: l l c c l
+
+    =======  ==============  ======  ==================  ===========================
+    Offset   Field           Size    Value               Description
+    =======  ==============  ======  ==================  ===========================
+    0        intf_id         1       Number              Interface
+    1        cport_id        2       Number              CPort on Interface
+    =======  ==============  ======  ==================  ===========================
+
+..
+
+Greybus SVC Connection Quiescing Response
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Connection Quiescing response message contains no payload.
+
 Greybus SVC Connection Destroy Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1555,7 +1757,7 @@ response shall contain zero.
 .. figtable::
     :nofig:
     :label: table-svc-timesync-authoritative-response
-    :caption: SVC Protocol TimeSync Enable Request
+    :caption: SVC Protocol TimeSync Enable Response
     :spec: l l c c l
 
     =======  ============  ======  ==========  ======================================
@@ -1573,56 +1775,39 @@ response shall contain zero.
 
 ..
 
-Greybus SVC Ping Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-The AP Module uses this operation to request determine if the SVC, and by virtue
-of the response, the greybus fabric, is still operating properly.  If the ping
-operation fails, the AP Module will take measures to restart the greybus network
-operations by possibly resetting different hardware devices.
+Greybus SVC Module Eject Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Greybus SVC Ping Request
-""""""""""""""""""""""""
+The Greybus SVC Module Eject operation is sent by the AP Module
+to request the SVC to execute the necessary actions to eject a
+Module from the Frame.
 
-The Greybus SVC Ping Request contains no payload.
+Greybus SVC Module Eject Request
+""""""""""""""""""""""""""""""""
 
-Greybus SVC Ping Response
-"""""""""""""""""""""""""
-
-The Greybus SVC Ping Response contains no payload.
-
-..
-
-Greybus SVC Interface Eject Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The requester uses this operation to indicate to the SVC that it should execute
-the necessary actions to release and eject an interface.
-
-Greybus SVC Interface Eject Request
-"""""""""""""""""""""""""""""""""""
-
-The Greybus SVC Interface Eject Request is defined in Table
-:num:`table-svc-interface-eject-request`, the Interface ID informs the SVC which
-Interface shall be ejected.
+The Greybus SVC Module Eject Request is defined in Table
+:num:`table-svc-module-eject-request`.  The primary_intf_id field in
+the request payload contains the Interface ID of the Primary
+Interface to the Module which the SVC shall eject from the Frame.
 
 .. figtable::
     :nofig:
-    :label: table-svc-interface-eject-request
-    :caption: SVC Protocol Interface Eject Request
+    :label: table-svc-module-eject-request
+    :caption: SVC Protocol Module Eject Request
     :spec: l l c c l
 
-    =======  ==============  ======  ============    ===========================
-    Offset   Field           Size    Value           Description
-    =======  ==============  ======  ============    ===========================
-    0        intf_id         1       Number          Interface that shall be ejected
-    =======  ==============  ======  ============    ===========================
+    =======  ===============  ====  ========    ===========================
+    Offset   Field            Size  Value       Description
+    =======  ===============  ====  ========    ===========================
+    0        primary_intf_id  1     Number      Module location
+    =======  ===============  ====  ========    ===========================
 
 ..
 
-Greybus SVC Interface Eject Response
-""""""""""""""""""""""""""""""""""""
+Greybus SVC Module Eject Response
+"""""""""""""""""""""""""""""""""
 
-The Greybus SVC Interface Eject response message contains no payload.
+The Greybus SVC Module Eject response message contains no payload.
 
 Greybus SVC Key Event Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1697,6 +1882,7 @@ included in Key Event Request.
     GB_SVC_KEY_PRESSED    Key event representing key pressed    0x01
     |_|                   (all other values reserved)           0x02..0xFF
     ====================  ====================================  ============
+..
 
 Greybus SVC Power Monitor Get Rail Count Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1752,8 +1938,8 @@ human-readable names for rails that support voltage, current and power
 measurement. Each name consists of a fixed 32-byte sub-buffer
 containing a rail name padded with zero bytes. A rail name is
 comprised of a subset of [US-ASCII]_ characters: lower- and upper-case
-alphanumerics and the character '_'. A rail name is from 1-32 bytes
-long; a 32-byte name has no pad bytes.
+alphanumerics and the character '_'. A rail name is 1-32 bytes long;
+a 32-byte name has no pad bytes.
 
 The number of these buffers shall be exactly the number returned by
 a prior Greybus SVC Power Monitor Get Rail Name Count operation.
@@ -1765,7 +1951,8 @@ request.
 Each rail has an implicit 'Rail ID' which is equal to its position in
 the array of rail names returned by this response. The rail whose name
 is first in the array shall have Rail ID 0, the second shall have Rail
-ID 1, and so on.
+ID 1, and so on. Despite using numeric IDs, the rail names returned by
+this operation are guaranteed to be unique.
 
 .. figtable::
     :nofig:
@@ -1939,6 +2126,114 @@ microwatts for power.
 
 ..
 
+Greybus SVC Power Down Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Power Down operation shall be used by the AP to request
+the SVC to forcibly power down all the devices under its control and
+then put itself in power down mode.  Prior to issuing such operation,
+the AP shall close all Greybus communication with all interfaces and
+then power all interfaces down.
+
+When the SVC Power Down operation completes, the Greybus subsystem is no
+more operational: hotplug detection is unavailable, no Greybus
+communication with any interface is possible, and SVC is unable to
+process any new Greybus operation or event.
+
+The SVC shall be reset to recover from this state.
+
+Greybus SVC Power Down Request
+""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Down request message contains no payload.
+
+Greybus SVC Power Down Response
+"""""""""""""""""""""""""""""""
+
+The Greybus SVC Power Down response message contains no payload.
+
+..
+
+.. _greybus-svc-module-inserted-operation:
+
+Greybus SVC Module Inserted Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Module Inserted request is sent by the SVC
+to the AP Module to indicate that a new Module has been inserted
+into the Frame.
+
+Greybus SVC Module Inserted Request
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Table :num:`table-svc-module-inserted-request` defines the Greybus SVC
+Module Inserted request payload.  The request specifies the location
+of the Primary Interface on the Frame for the inserted Module.  It
+also specifies the number of Interfaces covered by the Module.
+
+The location of each Interface ID on a Frame is well-defined:
+Interface ID 1 represents the Interface Block at the top left of the
+back (non-display) side of the Frame.  The next Interface ID is 2,
+and it represents the Interface Block below (toward the bottom of
+the Frame) Interface ID 1.  Interface IDs increase consecutively,
+moving counter-clockwise around the Frame.  The size of a Module
+(its interface count) is always 1 or more.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-module-inserted-request
+    :caption: SVC Protocol Module Inserted Request
+    :spec: l l c c l
+
+    =======  ===============  ====  ======  ====================
+    Offset   Field            Size  Value   Description
+    =======  ===============  ====  ======  ====================
+    0        primary_intf_id  1     Number  Module location
+    1        intf_count       1     Number  Number of Interfaces covered by Module
+    =======  ===============  ====  ======  ====================
+
+..
+
+Greybus SVC Module Inserted Response
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Module Inserted response message contains no payload.
+
+Greybus SVC Module Removed Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Module Removed request is sent by the SVC
+to the AP Module.  It supplies the Interface ID for the Primary
+Interface to the Module that is no longer present.  The Interface
+ID shall have been the subject of a previous
+:ref:`greybus-svc-module-inserted-operation`.
+
+Greybus SVC Module Removed Request
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Table :num:`table-svc-module-removed-request` defines the Greybus SVC
+Module Removed request payload.  The request specifies the Primary
+Interface ID for the Module that is no longer present.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-module-removed-request
+    :caption: SVC Protocol Module Removed Request
+    :spec: l l c c l
+
+    =======  ===============  ====  ======  ====================
+    Offset   Field            Size  Value   Description
+    =======  ===============  ====  ======  ====================
+    0        primary_intf_id  1     Number  Module location
+    =======  ===============  ====  ======  ====================
+
+..
+
+Greybus SVC Module Removed Response
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SVC Module Removed response message contains no payload.
+
 .. _firmware-protocol:
 
 Firmware Protocol
@@ -1949,6 +2244,10 @@ with the AP and download firmware executables via |unipro| when a module does
 not have its own firmware pre-loaded.
 
 The operations in the Greybus Firmware Protocol are:
+
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
 
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
@@ -2005,16 +2304,25 @@ response.
     ===========================  =============  ==============
     Firmware Operation Type      Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     Firmware Size                0x02           0x82
     Get Firmware                 0x03           0x83
     Ready to Boot                0x04           0x84
     AP Ready                     0x05           0x85
-    (all other values reserved)  0x06..0x7f     0x86..0xff
+    (all other values reserved)  0x06..0x7e     0x86..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus Firmware Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus Firmware Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the Firmware Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus Firmware Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2192,7 +2500,7 @@ Greybus Firmware Ready to Boot Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Greybus Firmware ready to boot operation lets the requesting module notify
-the AP that it has successfully loaded the connection's currently-associated
+the AP that it has successfully loaded the connection's currently associated
 firmware blob and is able to hand over control of the processor to that blob,
 indicating the status of its firmware blob.  The AP shall then send a response
 empty of payload, indicating via the header's status byte whether or not it

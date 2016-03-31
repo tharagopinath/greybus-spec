@@ -28,6 +28,10 @@ specifies the line to which the operation applies.
 
 Conceptually, the GPIO Protocol operations are:
 
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
+
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
     Refer to :ref:`greybus-protocol-version-operation`.
@@ -117,7 +121,7 @@ response type values are shown.
     ===========================  =============  ==============
     GPIO Operation Type          Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     Line Count                   0x02           0x82
     Activate                     0x03           0x83
@@ -132,10 +136,19 @@ response type values are shown.
     IRQ Mask                     0x0c           0x8c
     IRQ Unmask                   0x0d           0x8d
     IRQ Event                    0x0e           N/A
-    (all other values reserved)  0x0f..0x7f     0x1f..0xff
+    (all other values reserved)  0x0f..0x7e     0x8f..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus GPIO Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus GPIO Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the GPIO Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus GPIO Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -641,6 +654,8 @@ an event.
 ..
 
 
+.. _spi-protocol:
+
 SPI Protocol
 ------------
 
@@ -650,6 +665,10 @@ device. The Protocol consists of the operations defined in this
 section.
 
 Conceptually, the operations in the Greybus SPI Protocol are:
+
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
 
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
@@ -690,15 +709,24 @@ operation is a request or a response.
     ===========================  =============  ==============
     SPI Operation Type           Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     Master Config                0x02           0x82
     Device Config                0x03           0x83
     Transfer                     0x04           0x84
-    (all other values reserved)  0x05..0x7f     0x85..0xff
+    (all other values reserved)  0x05..0x7e     0x85..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus SPI Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SPI Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the SPI Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus SPI Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1011,6 +1039,10 @@ consists of the operations defined in this section.
 The operations that can be performed on a Greybus UART controller are
 conceptually:
 
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
+
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
     Refer to :ref:`greybus-protocol-version-operation`.
@@ -1067,7 +1099,7 @@ operation is a request or a response.
     ===========================  =============  ==============
     UART Operation Type          Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     Send Data                    0x02           0x82
     Receive Data                 0x03           0x83
@@ -1075,10 +1107,19 @@ operation is a request or a response.
     Set Control Line State       0x05           0x85
     Send Break                   0x06           0x86
     Serial State                 0x07           0x87
-    (all other values reserved)  0x08..0x7f     0x88..0xff
+    (all other values reserved)  0x08..0x7e     0x88..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus UART Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus UART Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the UART Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus UART Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1432,6 +1473,10 @@ operations defined in this section.
 
 Conceptually, the PWM Protocol operations are:
 
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
+
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
     Refer to :ref:`greybus-protocol-version-operation`.
@@ -1494,7 +1539,7 @@ are shown.
     ===========================  =============  ==============
     PWM Operation Type           Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     PWM count                    0x02           0x82
     Activate                     0x03           0x83
@@ -1503,10 +1548,19 @@ are shown.
     Set Polarity                 0x06           0x86
     Enable                       0x07           0x87
     Disable                      0x08           0x88
-    (all other values reserved)  0x09..0x7f     0x89..0xff
+    (all other values reserved)  0x09..0x7e     0x89..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus PWM Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus PWM Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the PWM Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus PWM Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1764,6 +1818,10 @@ here.
 
 Conceptually, the five operations in the Greybus I2C Protocol are:
 
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
+
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
     Refer to :ref:`greybus-protocol-version-operation`.
@@ -1801,16 +1859,25 @@ operation is a request or a response.
     ===========================  =============  ==============
     I2C Operation Type           Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     Functionality                0x02           0x82
     Reserved                     0x03           0x83
     Reserved                     0x04           0x84
     Transfer                     0x05           0x85
-    (all other values reserved)  0x06..0x7f     0x86..0xff
+    (all other values reserved)  0x06..0x7e     0x86..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus I2C Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus I2C Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the I2C Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus I2C Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2029,6 +2096,10 @@ formats are defined here.
 
 Conceptually, the operations in the Greybus SDIO Protocol are:
 
+.. c:function:: int ping(void);
+
+    See :ref:`greybus-protocol-ping-operation`.
+
 .. c:function:: int version(u8 offer_major, u8 offer_minor, u8 *major, u8 *minor);
 
     Refer to :ref:`greybus-protocol-version-operation`.
@@ -2082,17 +2153,26 @@ and response type values are shown.
     ===========================  =============  ==============
     SDIO Operation Type          Request Value  Response Value
     ===========================  =============  ==============
-    Invalid                      0x00           0x80
+    Ping                         0x00           0x80
     Protocol Version             0x01           0x81
     Get Capabilities             0x02           0x82
     Set Ios                      0x03           0x83
     Command                      0x04           0x84
     Transfer                     0x05           0x85
     Event                        0x06           N/A
-    (all other values reserved)  0x07..0x7f     0x87..0xff
+    (all other values reserved)  0x07..0x7e     0x87..0xfe
+    Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
 ..
+
+Greybus SDIO Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Greybus SDIO Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the SDIO Protocol.
+It consists of a request containing no payload, and a response
+with no payload that indicates a successful result.
 
 Greybus SDIO Protocol Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

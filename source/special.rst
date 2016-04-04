@@ -18,11 +18,12 @@ Module to exert this control.  The SVC also uses this protocol to
 notify the AP Module of events, such as the insertion or removal of
 a Module.
 
-The third is the :ref:`firmware-protocol`, which is used between the AP
+The third is the :ref:`bootrom-protocol`, which is used between the AP
 Module and any other module's bootloader to download firmware
 executables to the module.  When a module's manifest includes a CPort
-using the Firmware Protocol, the AP can connect to that CPort and
-download a firmware executable to the module.
+using the Bootrom Protocol, the AP can connect to that CPort and
+download a firmware executable to the module.  Bootrom protocol is
+deprecated for new designs requiring Firmware download to the Module.
 
 .. _control-protocol:
 
@@ -91,7 +92,7 @@ Conceptually, the Operations in the Greybus Control Protocol are:
     established Greybus connection may no longer be used.  This
     operation is never used for control CPort.
 
-.. c:function:: int timesync_enable(u8 count, u32 strobe_delay);
+.. c:function:: int timesync_enable(u8 count, u64 frame_time, u32 strobe_delay, u32 refclk);
 
     The AP Module uses this operation to inform the Interface that
     frame-time is being enabled.
@@ -101,12 +102,17 @@ Conceptually, the Operations in the Greybus Control Protocol are:
     The AP Module uses this operation to switch off frame-time logic in an
     Interface.
 
-.. c:function:: int timesync_authoritative(void);
+.. c:function:: int timesync_authoritative(u64 *frame_time);
 
     The AP Module uses this operation to inform an Interface of the
     authoritative frame-time reported by the SVC for each TIME_SYNC strobe.
-    The Interface shall return its own authoritative frame-time and
-    calculated propogation delay in the response phase of this operation.
+
+.. c:function:: int timesync_get_last_event(u64 *frame_time);
+
+    The AP Module uses this operation to get the frame-time at the last
+    pulse on the wake-detect pin of a relevant Interface. This operation
+    is used in conjunction with an SVC timesync-ping operation to verify
+    the local time at a given Interface.
 
 .. c:function:: int interface_version(u16 *major, u16 *minor);
 
@@ -152,7 +158,8 @@ type and response type values are shown.
     Interface Version            0x0a           0x8a
     Bundle Version               0x0b           0x8b
     Disconnecting                0x0c           0x8c
-    (all other values reserved)  0x0d..0x7e     0x8d..0xfe
+    TimeSync get last event      0x0d           0x8d
+    (all other values reserved)  0x0e..0x7e     0x8e..0xfe
     Invalid                      0x7f           0xff
     ===========================  =============  ==============
 
@@ -363,9 +370,11 @@ Greybus Control TimeSync Enable Operation
 The AP Module uses this operation to inform the Interface of an upcoming
 pulse-train of TIME_SYNC strobes. The 'count' parameter informs the
 Interface of how many TIME_SYNC strobes will be issued. The range of the
-count variable is from 0..7 with an implied +1 yielding an effective
-range of 1-8 TIME_SYNC strobes. The 'strobe_delay' parameter informs the
-Interface of the expected delay between each TIME_SYNC strobe.
+count variable is from 1..4. The 'frame_time' parameter informs the
+Interface to immediately seeds its frame-time to a value given by the AP.
+The 'strobe_delay' parameter informs the Interface of the expected delay
+between each TIME_SYNC strobe. The 'refclk' parameter informs the Interface
+of the required clock rate to run its frame-time tracking counter at.
 
 A later operation initiated by the AP will inform the Interface of the
 authoritative frame-time at each TIME_SYNC strobe.
@@ -375,8 +384,9 @@ Greybus Control TimeSync Enable Request
 
 Table :num:`table-control-timesync-enable-request` defines the Greybus
 Control TimeSync Enable Request payload. The request supplies the number
-of TIME_SYNC strobes to come (count) and the delay between each strobe
-(strobe_delay).
+of TIME_SYNC strobes to come (count), the initial time (frame_time) the
+delay between each strobe (strobe_delay) and the required clock rate to run
+the local timer at (refclk).
 
 .. figtable::
     :nofig:
@@ -384,12 +394,14 @@ of TIME_SYNC strobes to come (count) and the delay between each strobe
     :caption: Control Protocol TimeSync Enable Request
     :spec: l l c c l
 
-    =======  ============  ======  ==========  ======================================
+    =======  ============  ======  ==========  ========================================
     Offset   Field         Size    Value       Description
-    =======  ============  ======  ==========  ======================================
+    =======  ============  ======  ==========  ========================================
     0        count         1       Number      Number of TIME_SYNC pulses
-    1        strobe_delay  4       Number      Inter-strobe delay in milliseconds
-    =======  ============  ======  ==========  ======================================
+    1        frame_time    8       Number      The initial frame-time to intiailze to
+    9        strobe_delay  4       Number      Inter-strobe delay in milliseconds
+    13       refclk        4       Number      The clock rate of the frame-time counter
+    =======  ============  ======  ==========  ========================================
 
 ..
 
@@ -424,11 +436,9 @@ Greybus Control TimeSync Authoritative Request
 """"""""""""""""""""""""""""""""""""""""""""""
 
 Table :num:`table-control-timesync-authoritative-request` defines the Greybus
-Control TimeSync Authoritative Request payload. The request specifies the
-maximum jitter an Interface should tolerate with respect to a TIME_SYNC
-strobe specified in nanoseconds. The authoritative frame-time at each
-TIME_SYNC strobe as reported by the SVC to the AP Module is also included.
-Unused slots in the response shall contain zero.
+Control TimeSync Authoritative Request payload. The authoritative frame-time
+at each TIME_SYNC strobe as reported by the SVC to the AP Module is
+stipulated. Unused slots in the response shall contain zero.
 
 .. figtable::
     :nofig:
@@ -439,39 +449,46 @@ Unused slots in the response shall contain zero.
     =======  ==============  ======  ==========  ===================================================================
     Offset   Field           Size    Value       Description
     =======  ==============  ======  ==========  ===================================================================
-    0        maximum_jitter  4       Number      Maximum jitter to accept when calculating frame-time in nanoseconds
-    4        time_sync0      8       Number      Authoritative frame-time at TIME_SYNC0
-    12       time_sync1      8       Number      Authoritative frame-time at TIME_SYNC1
-    20       time_sync2      8       Number      Authoritative frame-time at TIME_SYNC2
-    28       time_sync3      8       Number      Authoritative frame-time at TIME_SYNC3
-    36       time_sync4      8       Number      Authoritative frame-time at TIME_SYNC4
-    44       time_sync5      8       Number      Authoritative frame-time at TIME_SYNC5
-    52       time_sync6      8       Number      Authoritative frame-time at TIME_SYNC6
-    60       time_sync7      8       Number      Authoritative frame-time at TIME_SYNC7
+    0        time_sync0      8       Number      Authoritative frame-time at TIME_SYNC0
+    8        time_sync1      8       Number      Authoritative frame-time at TIME_SYNC1
+    16       time_sync2      8       Number      Authoritative frame-time at TIME_SYNC2
+    24       time_sync3      8       Number      Authoritative frame-time at TIME_SYNC3
     =======  ==============  ======  ==========  ===================================================================
 ..
 
 Greybus Control TimeSync Authoritative Response
 """""""""""""""""""""""""""""""""""""""""""""""
 
-Table :num:`table-control-timesync-authoritative-response` defines the
-Greybus Control TimeSync Authoritative Response payload. The response
-specifies the authoritative frame-time at the last TIME_SYNC strobe and the
-propogration offset calculated by the Interface.
+The Greybus Control Protocol TimeSync Authoritative Response contains no payload.
+
+Greybus Control TimeSync Get Last Event Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The AP Module uses this operation to extract the last frame-time from an Interface
+associated with a wake-detect event.
+
+Greybus Control TimeSync Get Last Event Request
+"""""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus Control Protocol TimeSync Get Last Event Request contains no payload.
+
+Greybus Control TimeSync Get Last Event Response
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-control-timesync-get-last-event-response` defines the Greybus
+Control TimeSync Get Last Event Response payload. The frame-time at the last
+wake-detect event is returned.
 
 .. figtable::
     :nofig:
-    :label: table-control-timesync-authoritative-response
-    :caption: Control Protocol TimeSync Authoritative Response
+    :label: table-control-timesync-get-last-event-response
+    :caption: Control Protocol TimeSync Get Last Event Response
     :spec: l l c c l
 
-    =======  ============  ======  ==========  ======================================================
-    Offset   Field         Size    Value       Description
-    =======  ============  ======  ==========  ======================================================
-    0        prop_offset   4       Number      Calculated TIME_SYNC propogation offset in nanoseconds
-    4        time_sync     8       Number      Authoritative frame-time at the last TIME_SYNC
-    =======  ============  ======  ==========  ======================================================
-..
+    =======  ==============  ======  ==========  ===================================================================
+    Offset   Field           Size    Value       Description
+    =======  ==============  ======  ==========  ===================================================================
+    0        frame-time      8       Number      frame-time at the last wake-detect event.
+    =======  ==============  ======  ==========  ===================================================================
 
 Greybus Control Interface Version Operation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -666,7 +683,7 @@ Conceptually, the operations in the Greybus SVC Protocol are:
     The AP Module uses this operation to request the SVC tear down a
     previously created connection.
 
-.. c:function:: int timesync_enable(u8 count, u32 strobe_delay, u32 strobe_mask);
+.. c:function:: int timesync_enable(u8 count, u64 frame_time, u32 strobe_delay, u32 refclk);
 
     The AP Module uses this operation to request the SVC to enable frame-time
     tracking.
@@ -680,6 +697,26 @@ Conceptually, the operations in the Greybus SVC Protocol are:
 
     The AP Module uses this operation to request the SVC to send the
     authoritative frame-time at each TIME_SYNC strobe.
+
+.. c:function:: int timesync_wd_pins_init(u32 strobe_mask);
+
+    The AP Module uses this operation to request the SVC to take control
+    of a bit-mask of SVC device-id wake-detect lines. This done to establish
+    an initial state on the relevant wake-detect lines prior to generating
+    timesync releated events.
+
+.. c:function:: int timesync_wd_pins_fini(void);
+
+    The AP Module uses this operation to request the SVC to release
+    any wake-detect lines currently reserved for time-sync operations.
+
+.. c:function:: int timesync_ping(u64 *frame_time);
+
+    The AP Module uses this operation to request the SVC to generate a single
+    pulse on a bit-mask of wake-detect lines communicated to SVC by a prior
+    timesync_wd_pins_init() operation. SVC will return the authoritative
+    frame-time of the timesync_ping() to the AP Module in the response phase of
+    the operation.
 
 .. c:function:: int module_eject(u8 primary_intf_id);
 
@@ -733,7 +770,11 @@ Conceptually, the operations in the Greybus SVC Protocol are:
 
     The SVC uses this operation to notify the AP Module that a
     Module that was previously the subject of a Greybus SVC Module
-    Inserted operation is no longer present in the Frame.
+
+.. c:function:: int intf_power_state_set(u8 intf_id, u8 enable, u8 *result);
+
+   The AP uses this operation to request the SVC to power ON or power
+   OFF the Interface associated with the Interface ID.
 
 Greybus SVC Operations
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -780,11 +821,15 @@ response type values are shown.
     Power Monitor get rail names        0x15           0x95
     Power Monitor get sample            0x16           0x96
     Power Monitor interface get sample  0x17           0x97
+    TimeSync wake-detect pins init      0x18           0x98
+    TimeSync wake-detect pins fini      0x19           0x99
+    TimeSync ping                       0x1a           0x9a
     Power Down                          0x1d           0x9d
     Connection Quiescing                0x1e           0x9e
     Module Inserted                     0x1f           0x9f
     Module Removed                      0x20           0xa0
-    (all other values reserved)         0x21..0x7e     0xa1..0xfe
+    Interface Power State Set           0x21           0xa1
+    (all other values reserved)         0x22..0x7e     0xa2..0xfe
     Invalid                             0x7f           0xff
     ==================================  =============  ==============
 
@@ -1684,18 +1729,22 @@ Greybus SVC TimeSync Enable Operation
 The AP Module uses this operation to request the SVC to enable frame-time
 tracking. After a successful timesync_enable operation the SVC will
 generate a pulse-train of 'count' logical TIME_SYNC strobes to the bitmask
-of WAKE_DETECT lines indicated by 'strobe_mask'. A delay of 'strobe_delay'
-milliseconds will be applied between each TIME_SYNC strobe. The range of
-the count variable is from 0..7 with an implied +1 yielding an effective
-range of 1-8 TIME_SYNC strobes.
+of WAKE_DETECT lines indicated by a previously communicated set of
+Interfaces. A delay of 'strobe_delay' microseconds will be applied between
+each TIME_SYNC strobe. The range of the count variable is from 1..4.
+The 'frame_time' parameter informs the Interface to immediately seeds its
+frame-time to a value given by the AP. 'frame-time. The 'refclk' parameter
+informs the SVC of the required clock rate to run its frame-time tracking
+counter at.
 
 Greybus SVC TimeSync Enable Request
 """""""""""""""""""""""""""""""""""
 
 Table :num:`table-svc-timesync-enable-request` defines the Greybus SVC
 TimeSync Enable Request payload. The request supplies the number of
-TIME_SYNC strobes to perform (count), the delay between each strobe
-(strobe_delay) and the bit-mask of lines to strobe (strobe_mask).
+TIME_SYNC strobes to perform (count), the initial frame-time (frame_time),
+the delay between each strobe (strobe_delay) and the required clock-rate
+for frame-time (refclk).
 
 .. figtable::
     :nofig:
@@ -1703,13 +1752,14 @@ TIME_SYNC strobes to perform (count), the delay between each strobe
     :caption: SVC Protocol TimeSync Enable Request
     :spec: l l c c l
 
-    =======  ============  ======  ==========  ======================================
+    =======  ============  ======  ==========  ========================================
     Offset   Field         Size    Value       Description
-    =======  ============  ======  ==========  ======================================
+    =======  ============  ======  ==========  ========================================
     0        count         1       Number      Number of TIME_SYNC pulses
-    1        strobe_delay  4       Number      Inter-strobe delay in milliseconds
-    5        strobe_mask   4       Number      Bitmask of WAKE_DETECT lines to strobe
-    =======  ============  ======  ==========  ======================================
+    1        frame_time    8       Number      The initial frame-time to intiailze to
+    9        strobe_delay  4       Number      Inter-strobe delay in milliseconds
+    13       refclk        4       Number      The clock rate of the frame-time counter
+    =======  ============  ======  ==========  ========================================
 
 ..
 
@@ -1767,10 +1817,94 @@ response shall contain zero.
     8        time_sync1    8       Number      Authoritative frame-time at TIME_SYNC1
     16       time_sync2    8       Number      Authoritative frame-time at TIME_SYNC2
     24       time_sync3    8       Number      Authoritative frame-time at TIME_SYNC3
-    32       time_sync4    8       Number      Authoritative frame-time at TIME_SYNC4
-    40       time_sync5    8       Number      Authoritative frame-time at TIME_SYNC5
-    48       time_sync6    8       Number      Authoritative frame-time at TIME_SYNC6
-    56       time_sync7    8       Number      Authoritative frame-time at TIME_SYNC7
+    =======  ============  ======  ==========  ======================================
+
+..
+
+Greybus SVC TimeSync Wake-Detect Pins Init Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The AP Module uses this operation to request the SVC to take ownership-of and
+establish-an initial state on a bit-mask of SVC device-ids specified by the
+strobe_mask parameter passed as part of the request phase of the operation.
+
+The SVC will take control of the wake-detect lines specified in the request and
+set the outputs to logical 0.
+
+Greybus SVC TimeSync Wake-Detect Pins Init Request
+""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-svc-timesync-wd-pins-init-request` defines the Greybus SVC
+TimeSync Wake-Detect Pins Init Request payload. The request supplies the
+bit-mask (strobe_mask) of SVC device-ids which should have their wake-detect
+pins set to output with logical state 0.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-timesync-wd-pins-init-request
+    :caption: SVC Protocol TimeSync Wake-Detect Pins Init Request
+    :spec: l l c c l
+
+    =======  ============  ======  ==========  =================================================
+    Offset   Field         Size    Value       Description
+    =======  ============  ======  ==========  =================================================
+    0        strobe_mask   4       Number      Bit-mask of devices SVC should allocate to output
+    =======  ============  ======  ==========  =================================================
+
+..
+
+Greybus SVC TimeSync Wake-Detect Pins Init Response
+"""""""""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Protocol TimeSync Wake-Detect Pins Init response contains no payload.
+
+Greybus SVC TimeSync Wake-Detect Pins Fini Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The AP Module uses this operation to request the SVC to release ownership of any
+previously allocated wake-detect pins. SVC will release all pins allocated for
+wake-detect purposes in a previous Greybus SVC TimeSync Wake-Detect Pins Init
+operation.
+
+Greybus SVC TimeSync Wake-Detect Pins Fini Request
+""""""""""""""""""""""""""""""""""""""""""""""""""
+The Greybus SVC Protocol TimeSync Wake-Detect Pins Fini request contains no payload.
+
+Greybus SVC TimeSync Wake-Detect Pins Fini Response
+"""""""""""""""""""""""""""""""""""""""""""""""""""
+
+The Greybus SVC Protocol TimeSync Wake-Detect Pins Fini response contains no payload.
+
+Greybus SVC TimeSync Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The AP Module uses this operation to request the SVC to send a single timesync
+event on a bitmask of wake-detect pins which must have previously been allocated
+via Greybus SVC TimeSync Wake-Detect Pins Init.
+
+On receipt of this request the SVC will immediately generate a single pulse and
+capture the authoritative frame-time; this frame-time will then be returned in
+the response phase of the TimeSync Ping Operation.
+
+Greybus SVC TimeSync Ping Request
+"""""""""""""""""""""""""""""""""
+
+The Greybus SVC Protocol TimeSync Ping Request contains no payload.
+
+Greybus SVC TimeSync Ping Response
+""""""""""""""""""""""""""""""""""
+
+Table :num:`table-svc-timesync-ping-response` defines the Greybus SVC
+TimeSync Ping Response payload. The response specifies the
+authoritative frame-time at the ping event generated.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-timesync-ping-response
+    :caption: SVC Protocol TimeSync Ping Response
+    :spec: l l c c l
+
+    =======  ============  ======  ==========  ======================================
+    Offset   Field         Size    Value       Description
+    =======  ============  ======  ==========  ======================================
+    0        frame-time    8       Number      Authoritative frame-time at ping event
     =======  ============  ======  ==========  ======================================
 
 ..
@@ -2234,16 +2368,150 @@ Greybus SVC Module Removed Response
 
 The Greybus SVC Module Removed response message contains no payload.
 
-.. _firmware-protocol:
+Greybus SVC Interface Power State Set Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Firmware Protocol
------------------
+The AP uses this operation to request the SVC to enable or disable power
+to the Interface specified by the Interface ID. The SVC, on receiving
+this operation, shall unconditionally perform the necessary actions to
+power ON or power OFF the Interface.
 
-The Greybus Firmware Protocol is used by a module's bootloader to communicate
+Greybus SVC Interface Power State Set Request
+"""""""""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-svc-interface-power-state-set-request` defines the
+Greybus SVC Interface Power State Set Request payload. The request
+contains one-byte Interface ID and one-byte specifying the target
+power state.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-interface-power-state-set-request
+    :caption: SVC Protocol Interface Power State Set Request
+    :spec: l l c c l
+
+    =======  ==============  ======  ============    ============
+    Offset   Field           Size    Value           Description
+    =======  ==============  ======  ============    ============
+    0        intf_id         1       Interface ID    Interface ID
+    1        state           1       Number          Power State
+    =======  ==============  ======  ============    ============
+..
+
+The state field in the request payload allows the AP to specify whether
+the SVC shall power ON or power down the Interface.  Table
+:num:`table-svc-interface-power-state-set-request-state` defines the
+possible values for the state field.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-interface-power-state-set-request-state
+    :caption: SVC Protocol Interface Power States
+    :spec: l c l
+
+    ===========  =====  ==============================
+    POWER STATE  Value  Description
+    ===========  =====  ==============================
+    PWR_DISABLE  0      Disable Interface power
+    PWR_ENABLE   1      Enable Interface power
+    (Reserved)   2-255  Reserved
+    ===========  =====  ==============================
+..
+
+A Greybus SVC Interface Power State Set Request with the "state" field
+set to PWR_ENABLE means that the AP is requesting the SVC to power ON
+the targeted Interface. The SVC, on receiving this request with
+PWR_ENABLE state, shall unconditionally attempt to power ON the
+Interface. The AP shall transition the Interface to PWR_ENABLE state
+prior to initiating any new Greybus Operations on the Interface.
+
+Similarly, a Greybus SVC Interface Power State Set Request with the
+"state" field set to PWR_DISABLE means that the AP is requesting the
+SVC to power OFF the targeted Interface. The SVC, on receiving this
+request with PWR_DISABLE state, shall unconditionally attempt to power
+OFF the Interface. The AP shall ensure that the Greybus connections
+already established in the Interface are destroyed before issuing this
+operation.
+
+Greybus SVC Interface Power State Set Response
+""""""""""""""""""""""""""""""""""""""""""""""
+
+Table :num:`table-svc-interface-power-state-set-response` defines the
+Greybus SVC Interface Power State Set Response payload. The response
+contains a one-byte result code specifying the status.
+
+.. figtable::
+    :nofig:
+    :label: table-svc-interface-power-state-set-response
+    :caption: SVC Protocol Interface Power State Set Response
+    :spec: l l c c l
+
+    =======  ===========  ======  ==========  ===========
+    Offset   Field        Size    Value       Description
+    =======  ===========  ======  ==========  ===========
+    0        result_code  1       Number      Result Code
+    =======  ===========  ======  ==========  ===========
+..
+
+The status field of the response to a Greybus SVC Interface Power State
+Set Request shall not be used to check the result of the operation. It
+shall only be used to indicate the result of the Greybus communication.
+If the response to a Greybus SVC Interface Power State Set Request has
+status different than GB_OP_SUCCESS, it shall indicate that a Greybus
+communication error occurred and that the targeted Interface could not
+be powered ON or powered OFF; the targeted Interface shall be in the
+same state as before the request was issued. If the response to a
+Greybus SVC Interface Power State Set Request has status GB_OP_SUCCESS,
+it shall indicate that there was no Greybus communication error detected
+(request and response were successfully exchanged).  However, it shall
+not also be considered as a successful power enable/disable.
+
+The result_code field in the response, as described in Table
+:num:`table-svc-interface-power-state-set-response` shall be used for
+that unique purpose. In other words, if and only if the response status
+field is GB_OP_SUCCESS and the result_code field in the response is
+PWR_OK then the request shall be considered as successful. The operation
+shall otherwise be considered as failed in any other combination of
+these two fields.
+
+The values of the result_code are defined in Table
+:num:`table-interface-power-state-set-result-code`.
+
+.. figtable::
+    :nofig:
+    :label: table-interface-power-state-set-result-code
+    :caption: Interface Power State Set Result Code
+    :spec: l l l
+
+    ================  ========  =======================================================================================
+    Result Code       Value     Description
+    ================  ========  =======================================================================================
+    PWR_OK            0         Power enable/disable operation was successful.
+    PWR_BUSY          1         Power enable/disable operation cannot be attempted as the SVC is busy.
+    PWR_FAIL          2         Power enable/disable was attempted and failed.
+    (Reserved)        3-255     (Reserved for future use)
+    ================  ========  =======================================================================================
+..
+
+.. _bootrom-protocol:
+
+Bootrom Protocol
+----------------
+
+.. note:: Bootrom Protocol is deprecated for new designs requiring
+          Firmware download to the Module.  It doesn't support
+          downloading device processor firmware images and updating them
+          on the Module.  Also, it doesn't include proper sequence of
+          closing the CPorts, while switching from one Firmware stage to
+          another.  It is already part of chips that went into
+          production, and so its support can't be dropped from Greybus
+          Specifications.
+
+The Greybus Bootrom Protocol is used by a module's bootloader to communicate
 with the AP and download firmware executables via |unipro| when a module does
 not have its own firmware pre-loaded.
 
-The operations in the Greybus Firmware Protocol are:
+The operations in the Greybus Bootrom Protocol are:
 
 .. c:function:: int ping(void);
 
@@ -2256,10 +2524,10 @@ The operations in the Greybus Firmware Protocol are:
 .. c:function:: int ap_ready(void);
 
     The AP sends a request to the module in order to confirm that the AP
-    is now ready to receive requests over its firmware cport and the
+    is now ready to receive requests over its bootrom cport and the
     module can start firmware download process.  Until this request is
     received by the module, it shall not send any requests on the
-    firmware cport.
+    bootrom cport.
 
 .. c:function:: int firmware_size(u8 stage, u32 *size);
 
@@ -2288,21 +2556,21 @@ The operations in the Greybus Firmware Protocol are:
     response's status byte, otherwise it sends an error code in its response's
     status byte.
 
-Greybus Firmware Operations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Table :num:`table-firmware-operation-type` describes the Greybus firmware
+Greybus Bootrom Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Table :num:`table-bootrom-operation-type` describes the Greybus Bootrom
 operation types and their values.  A message type consists of an operation type
 combined with a flag (0x80) indicating whether the operation is a request or a
 response.
 
 .. figtable::
     :nofig:
-    :label: table-firmware-operation-type
-    :caption: Firmware Operation Types
+    :label: table-bootrom-operation-type
+    :caption: Bootrom Operation Types
     :spec: l l l
 
     ===========================  =============  ==============
-    Firmware Operation Type      Request Value  Response Value
+    Bootrom Operation Type       Request Value  Response Value
     ===========================  =============  ==============
     Ping                         0x00           0x80
     Protocol Version             0x01           0x81
@@ -2316,19 +2584,19 @@ response.
 
 ..
 
-Greybus Firmware Ping Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Greybus Bootrom Ping Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Greybus Firmware Ping Operation is the
-:ref:`greybus-protocol-ping-operation` for the Firmware Protocol.
-It consists of a request containing no payload, and a response
-with no payload that indicates a successful result.
+The Greybus Bootrom Ping Operation is the
+:ref:`greybus-protocol-ping-operation` for the Bootrom Protocol.  It
+consists of a request containing no payload, and a response with no
+payload that indicates a successful result.
 
-Greybus Firmware Protocol Version Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Greybus Bootrom Protocol Version Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Greybus Firmware Protocol Version Operation is the
-:ref:`greybus-protocol-version-operation` for the Firmware Protocol.
+The Greybus Bootrom Protocol Version Operation is the
+:ref:`greybus-protocol-version-operation` for the Bootrom Protocol.
 
 Greybus implementations adhering to the Protocol specified herein
 shall specify the value |gb-major| for the version_major and
@@ -2336,28 +2604,28 @@ shall specify the value |gb-major| for the version_major and
 request and response messages.
 
 
-Greybus Firmware Protocol AP Ready Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Greybus Bootrom Protocol AP Ready Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Greybus Firmware Protocol AP Ready operation allows the AP to
+The Greybus Bootrom Protocol AP Ready operation allows the AP to
 indicate that it is ready to receive requests from the module over the
-firmware cport. Only after the module has received this request may it
-start sending requests on the firmware cport.
+bootrom cport. Only after the module has received this request may it
+start sending requests on the bootrom cport.
 
-Greybus Firmware Protocol AP Ready Request
+Greybus Bootrom Protocol AP Ready Request
+"""""""""""""""""""""""""""""""""""""""""
+
+The Greybus Bootrom AP Ready request message has no payload.
+
+Greybus Bootrom Protocol AP Ready Response
 """"""""""""""""""""""""""""""""""""""""""
 
-The Greybus Firmware AP Ready request message has no payload.
+The Greybus Bootrom AP Ready response message has no payload.
 
-Greybus Firmware Protocol AP Ready Response
-"""""""""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Firmware Size Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Greybus Firmware AP Ready response message has no payload.
-
-Greybus Firmware Firmware Size Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The Greybus Firmware firmware size operation allows the requestor to submit a
+The Greybus Bootrom firmware size operation allows the requestor to submit a
 boot stage to the AP, so that the AP can associate a firmware blob with that
 boot stage and respond with its size.  The AP keeps the firmware blob associated
 with the boot stage until it receives another Firmware Size Request on the same
@@ -2366,17 +2634,17 @@ different requests with identical boot stages, even to the same module.
 
 .. _firmware-size-request:
 
-Greybus Firmware Firmware Size Request
-""""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Firmware Size Request
+"""""""""""""""""""""""""""""""""""""
 
-Table :num:`table-firmware-size-request` defines the Greybus firmware size
+Table :num:`table-firmware-size-request` defines the Greybus Bootrom Firmware Size
 request payload.  The request supplies the boot stage of the module implementing
 the Protocol.
 
 .. figtable::
     :nofig:
     :label: table-firmware-size-request
-    :caption: Firmware Protocol Firmware Size Request
+    :caption: Bootrom Protocol Firmware Size Request
     :spec: l l c c l
 
     ======  =========  ====  ======  ===============================================
@@ -2389,8 +2657,8 @@ the Protocol.
 
 .. _firmware-boot-stages:
 
-Greybus Firmware Boot Stages
-""""""""""""""""""""""""""""
+Greybus Bootrom Firmware Boot Stages
+""""""""""""""""""""""""""""""""""""
 
 Table :num:`table-firmware-boot-stages` defines the boot stages whose firmware
 can be requested from the AP via the Protocol.
@@ -2398,7 +2666,7 @@ can be requested from the AP via the Protocol.
 .. figtable::
     :nofig:
     :label: table-firmware-boot-stages
-    :caption: Firmware Protocol Boot Stages
+    :caption: Bootrom Protocol Firmware Boot Stages
     :spec: l l l
 
     ================  ======================================================  ==========
@@ -2414,8 +2682,8 @@ can be requested from the AP via the Protocol.
 
 .. _firmware-size-response:
 
-Greybus Firmware Firmware Size Response
-"""""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Firmware Size Response
+""""""""""""""""""""""""""""""""""""""
 
 Table :num:`table-firmware-size-response` defines the Greybus firmware size
 response payload.  The response supplies the size of the AP's firmware blob for
@@ -2424,7 +2692,7 @@ the module implementing the Protocol.
 .. figtable::
     :nofig:
     :label: table-firmware-size-response
-    :caption: Firmware Protocol Firmware Size Response
+    :caption: Bootrom Protocol Firmware Size Response
     :spec: l l c c l
 
     ======  =====  ====  ======  =========================
@@ -2435,10 +2703,10 @@ the module implementing the Protocol.
 
 ..
 
-Greybus Firmware Get Firmware Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Greybus Bootrom Get Firmware Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Greybus Firmware get firmware operation allows the requestor to retrieve a
+The Greybus Bootrom get firmware operation allows the requester to retrieve a
 stream of bytes at an offset within the firmware blob from the AP.  The AP
 responds with the requested number of bytes from the connection's associated
 firmware blob at the requested offset, or with an error status without payload
@@ -2446,10 +2714,10 @@ if no firmware blob has yet been associated with this connection or if the
 requested stream size exceeds the firmware blob's size minus the requested
 offset.
 
-Greybus Firmware Get Firmware Request
-"""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Get Firmware Request
+""""""""""""""""""""""""""""""""""""
 
-Table :num:`table-firmware-get-firmware-request` defines the Greybus Firmware
+Table :num:`table-bootrom-get-firmware-request` defines the Greybus Bootrom
 get firmware request payload.  The request specifies an offset into the firmware
 blob, and the size of the stream of bytes requested.  The stream size requested
 must be less than or equal to the size given by the most recent firmware size
@@ -2459,8 +2727,8 @@ tracking its offset into the firmware blob as needed.
 
 .. figtable::
     :nofig:
-    :label: table-firmware-get-firmware-request
-    :caption: Firmware Protocol Get Firmware Request
+    :label: table-bootrom-get-firmware-request
+    :caption: Bootrom Protocol Get Firmware Request
     :spec: l l c c l
 
     ======  ====== ====  ======  =================================
@@ -2472,10 +2740,10 @@ tracking its offset into the firmware blob as needed.
 
 ..
 
-Greybus Firmware Get Firmware Response
-""""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Get Firmware Response
+"""""""""""""""""""""""""""""""""""""
 
-Table :num:`table-firmware-get-firmware-response` defines the Greybus Firmware
+Table :num:`table-bootrom-get-firmware-response` defines the Greybus Bootrom
 get firmware response payload.  The response includes the stream of bytes
 requested by the module.  In the case that the AP cannot fulfill the request,
 such as when the requested stream size was greater than the total size of the
@@ -2484,8 +2752,8 @@ header.
 
 .. figtable::
     :nofig:
-    :label: table-firmware-get-firmware-response
-    :caption: Firmware Protocol Get Firmware Response
+    :label: table-bootrom-get-firmware-response
+    :caption: Bootrom Protocol Get Firmware Response
     :spec: l l c c l
 
     ======  =====  ====== ======  =================================
@@ -2496,10 +2764,10 @@ header.
 
 ..
 
-Greybus Firmware Ready to Boot Operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Greybus Bootrom Ready to Boot Operation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Greybus Firmware ready to boot operation lets the requesting module notify
+The Greybus Bootrom ready to boot operation lets the requesting module notify
 the AP that it has successfully loaded the connection's currently associated
 firmware blob and is able to hand over control of the processor to that blob,
 indicating the status of its firmware blob.  The AP shall then send a response
@@ -2509,17 +2777,17 @@ permits the module to continue booting.
 The module shall send a ready to boot request only when it has successfully
 loaded a firmware blob and can execute that firmware.
 
-Greybus Firmware Ready to Boot Request
-""""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Ready to Boot Request
+"""""""""""""""""""""""""""""""""""""
 
-Table :num:`table-firmware-ready-to-boot-request` defines the Greybus Firmware
+Table :num:`table-bootrom-ready-to-boot-request` defines the Greybus Bootrom
 ready to boot request payload.  The request gives the security status of its
 firmware blob.
 
 .. figtable::
     :nofig:
-    :label: table-firmware-ready-to-boot-request
-    :caption: Firmware Protocol Ready to Boot Request
+    :label: table-bootrom-ready-to-boot-request
+    :caption: Bootrom Protocol Ready to Boot Request
     :spec: l l c c l
 
     ======  ======  ====  ======  ===========================
@@ -2532,17 +2800,17 @@ firmware blob.
 
 .. _firmware-blob-status:
 
-Greybus Firmware Ready to Boot Firmware Blob Status
-"""""""""""""""""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Ready to Boot Firmware Blob Status
+""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Table :num:`table-firmware-blob-status` defines the constants by which the
 module can indicate the status of its firmware blob to the AP in a Greybus
-Firmware Ready to Boot Request.
+Bootrom Ready to Boot Request.
 
 .. figtable::
     :nofig:
     :label: table-firmware-blob-status
-    :caption: Firmware Ready to Boot Firmware Blob Statuses
+    :caption: Bootrom Ready to Boot Firmware Blob Statuses
     :spec: l l l
 
     ====================  ====================================  ============
@@ -2556,10 +2824,10 @@ Firmware Ready to Boot Request.
 
 ..
 
-Greybus Firmware Ready to Boot Response
-"""""""""""""""""""""""""""""""""""""""
+Greybus Bootrom Ready to Boot Response
+""""""""""""""""""""""""""""""""""""""
 
-If the AP permits the module to boot in its current status, the Greybus Firmware
+If the AP permits the module to boot in its current status, the Greybus Bootrom
 Ready to Boot response message shall have no payload.  In the case that the AP
 forbids the module from booting, it shall signal an error in the status byte of
 the response message's header.
